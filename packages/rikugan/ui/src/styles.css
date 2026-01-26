@@ -233,6 +233,13 @@ button.ghost.small {
   gap: 8px;
 }
 
+.group-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .file-block {
   border: 1px solid var(--border);
   border-radius: 12px;

@@ -87,6 +87,15 @@ const RunView: React.FC = () => {
     });
   }, [review, search, hunkMap]);
 
+  const groupMetrics = React.useMemo(() => {
+    const metrics = new Map<string, { files: number; bugs: number; flags: number }>();
+    if (!review) return metrics;
+    for (const group of review.groups) {
+      metrics.set(group.id, computeGroupMetrics(group, review.findings, hunkMap));
+    }
+    return metrics;
+  }, [review, hunkMap]);
+
   React.useEffect(() => {
     if (!review) return;
     const elements = Array.from(document.querySelectorAll("[data-group-id]")) as HTMLElement[];
@@ -185,19 +194,29 @@ const RunView: React.FC = () => {
         <aside className="pane story">
           <h2>Story</h2>
           <div className="story-outline">
-            {groups.map((group) => (
-              <button
-                key={group.id}
-                className={`story-item ${activeGroupId === group.id ? "active" : ""}`}
-                onClick={() => scrollToGroup(group.id)}
-              >
-                <div className="story-item-title">{group.title}</div>
-                <div className="story-item-meta">
-                  <span className={`badge risk-${group.risk}`}>{group.risk}</span>
-                  <span className="badge neutral">{group.hunkIds.length} hunks</span>
-                </div>
-              </button>
-            ))}
+            {groups.map((group) => {
+              const metrics = groupMetrics.get(group.id);
+              return (
+                <button
+                  key={group.id}
+                  className={`story-item ${activeGroupId === group.id ? "active" : ""}`}
+                  onClick={() => scrollToGroup(group.id)}
+                >
+                  <div className="story-item-title">{group.title}</div>
+                  <div className="story-item-meta">
+                    {metrics ? (
+                      <>
+                        <span className="badge bug">Bugs {metrics.bugs}</span>
+                        <span className="badge flag">Flags {metrics.flags}</span>
+                        <span className="badge neutral">Files {metrics.files}</span>
+                      </>
+                    ) : null}
+                    <span className={`badge risk-${group.risk}`}>{group.risk}</span>
+                    <span className="badge neutral">{group.hunkIds.length} hunks</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </aside>
 
@@ -210,6 +229,19 @@ const RunView: React.FC = () => {
                   <p>{group.rationale}</p>
                 </div>
                 <div className="group-meta">
+                  {groupMetrics.get(group.id) ? (
+                    <div className="group-metrics">
+                      <span className="badge bug">
+                        Bugs {groupMetrics.get(group.id)?.bugs ?? 0}
+                      </span>
+                      <span className="badge flag">
+                        Flags {groupMetrics.get(group.id)?.flags ?? 0}
+                      </span>
+                      <span className="badge neutral">
+                        Files {groupMetrics.get(group.id)?.files ?? 0}
+                      </span>
+                    </div>
+                  ) : null}
                   <span className={`badge risk-${group.risk}`}>{group.risk}</span>
                   {group.suggestedTests?.length ? (
                     <span className="badge neutral">Tests: {group.suggestedTests.join(", ")}</span>
@@ -502,6 +534,34 @@ function toggleHunk(
     }
     return next;
   });
+}
+
+function computeGroupMetrics(
+  group: ReviewGroup,
+  findings: Finding[],
+  hunkMap: Map<string, { file: any; hunk: any; filePath: string }>
+) {
+  const filePaths = new Set<string>();
+  for (const hunkId of group.hunkIds) {
+    const entry = hunkMap.get(hunkId);
+    if (entry?.filePath) {
+      filePaths.add(entry.filePath);
+    }
+  }
+  let bugs = 0;
+  let flags = 0;
+  for (const finding of findings) {
+    const matches = finding.evidence.some((evidence) => {
+      if (evidence.hunkId && group.hunkIds.includes(evidence.hunkId)) return true;
+      if (evidence.filePath && filePaths.has(evidence.filePath)) return true;
+      return false;
+    });
+    if (matches) {
+      if (finding.kind === "bug") bugs += 1;
+      if (finding.kind === "flag") flags += 1;
+    }
+  }
+  return { files: filePaths.size, bugs, flags };
 }
 
 function scrollToGroup(groupId: string) {
