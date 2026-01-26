@@ -1,5 +1,5 @@
 import React from "react";
-import { Diff, Hunk, parseDiff } from "react-diff-view";
+import { Diff, Hunk, getChangeKey, parseDiff } from "react-diff-view";
 import { useParams } from "react-router-dom";
 
 import type { Annotation, Finding, ReviewGroup, ReviewJson } from "./types";
@@ -21,6 +21,7 @@ const RunView: React.FC = () => {
   } | null>(null);
   const [findingsTab, setFindingsTab] = React.useState<"all" | "bug" | "flag">("all");
   const [collapsedFiles, setCollapsedFiles] = React.useState<Set<string>>(new Set());
+  const [expandedHunks, setExpandedHunks] = React.useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     if (!id) return;
@@ -217,7 +218,9 @@ const RunView: React.FC = () => {
                 annotationsByLine,
                 selectedEvidence,
                 collapsedFiles,
-                setCollapsedFiles
+                setCollapsedFiles,
+                expandedHunks,
+                setExpandedHunks
               )}
             </section>
           ))}
@@ -303,7 +306,9 @@ function renderGroupDiffs(
     hunkId?: string;
   } | null,
   collapsedFiles: Set<string>,
-  setCollapsedFiles: React.Dispatch<React.SetStateAction<Set<string>>>
+  setCollapsedFiles: React.Dispatch<React.SetStateAction<Set<string>>>,
+  expandedHunks: Set<string>,
+  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>
 ) {
   const fileGroups = new Map<string, { file: any; hunks: any[] }>();
 
@@ -317,6 +322,7 @@ function renderGroupDiffs(
 
   return Array.from(fileGroups.entries()).map(([filePath, { file, hunks }]) => {
     const isCollapsed = collapsedFiles.has(filePath);
+    const widgets = buildHunkWidgets(hunks, filePath, group, expandedHunks, setExpandedHunks);
     return (
       <div key={`${group.id}-${filePath}`} className="file-block">
         <div className="file-header">
@@ -331,6 +337,7 @@ function renderGroupDiffs(
             diffType={file.type ?? "modify"}
             hunks={hunks}
             renderGutter={(options: any) => renderGutter(options, annotationsByLine, filePath)}
+            widgets={widgets}
             generateLineClassName={({ changes, defaultGenerate }) => {
               const base = defaultGenerate();
               const changeType = changes[0]?.type ?? "normal";
@@ -439,6 +446,52 @@ function matchesLine(line: number | null, target?: number, range?: [number, numb
   return false;
 }
 
+function buildHunkWidgets(
+  hunks: any[],
+  filePath: string,
+  group: ReviewGroup,
+  expandedHunks: Set<string>,
+  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>
+) {
+  const widgets: Record<string, React.ReactNode> = {};
+  for (const hunk of hunks) {
+    const hunkId = getHunkId(filePath, hunk);
+    const firstChange = hunk.changes?.[0];
+    if (!firstChange) continue;
+    const changeKey = getChangeKey(firstChange);
+    const isExpanded = expandedHunks.has(hunkId);
+    widgets[changeKey] = (
+      <div className="hunk-explainer">
+        <div className="hunk-explainer-title">Change note</div>
+        <div className="hunk-explainer-body">
+          {isExpanded
+            ? group.rationale
+            : `${group.rationale.slice(0, 120)}${group.rationale.length > 120 ? "…" : ""}`}
+        </div>
+        <button className="ghost small" onClick={() => toggleHunk(hunkId, setExpandedHunks)}>
+          {isExpanded ? "Less" : "More"}
+        </button>
+      </div>
+    );
+  }
+  return widgets;
+}
+
+function toggleHunk(
+  hunkId: string,
+  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>
+) {
+  setExpandedHunks((current) => {
+    const next = new Set(current);
+    if (next.has(hunkId)) {
+      next.delete(hunkId);
+    } else {
+      next.add(hunkId);
+    }
+    return next;
+  });
+}
+
 function scrollToGroup(groupId: string) {
   const element = document.querySelector(`[data-group-id="${groupId}"]`);
   if (element) {
@@ -449,7 +502,13 @@ function scrollToGroup(groupId: string) {
 function handleFindingClick(
   finding: Finding,
   setSelectedEvidence: React.Dispatch<
-    React.SetStateAction<{ filePath: string; side?: string; line?: number; hunkId?: string } | null>
+    React.SetStateAction<{
+      filePath: string;
+      side?: "old" | "new";
+      line?: number;
+      lineRange?: [number, number];
+      hunkId?: string;
+    } | null>
   >
 ) {
   const evidence = finding.evidence[0];
