@@ -1,6 +1,6 @@
 {
   "name": "rikugan",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": false,
   "type": "module",
   "bin": {
@@ -15,6 +15,14 @@
     "artifacts",
     "fixtures"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrobergamini/rikugan.git"
+  },
+  "homepage": "https://github.com/pedrobergamini/rikugan",
+  "bugs": {
+    "url": "https://github.com/pedrobergamini/rikugan/issues"
+  },
   "scripts": {
     "build": "pnpm run build:ui && pnpm run build:ts",
     "build:ts": "tsup",
