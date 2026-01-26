@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["groups"],
+  "properties": {
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "rationale", "risk", "hunkIds"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "rationale": { "type": "string" },
+          "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+          "hunkIds": { "type": "array", "items": { "type": "string" } },
+          "suggestedTests": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["annotations"],
+  "properties": {
+    "annotations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "confidence", "title", "bodyMarkdown", "anchor"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["explain", "risk", "question", "test", "nit"]
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "title": { "type": "string" },
+          "bodyMarkdown": { "type": "string" },
+          "anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["filePath", "side", "line"],
+            "properties": {
+              "filePath": { "type": "string" },
+              "side": { "type": "string", "enum": ["old", "new"] },
+              "line": { "type": "number" },
+              "hunkId": { "type": "string" }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["label", "action", "scope"],
+              "properties": {
+                "label": { "type": "string" },
+                "action": { "type": "string", "enum": ["openChat"] },
+                "scope": { "type": "string", "enum": ["group", "file", "repo"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
