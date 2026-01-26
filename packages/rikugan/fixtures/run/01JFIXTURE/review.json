@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "runId": "01JFIXTURE",
+  "createdAt": "2026-01-25T12:00:00.000Z",
+  "repo": {
+    "root": "/repo",
+    "headSha": "abc123",
+    "branch": "main",
+    "dirty": false
+  },
+  "diffSource": { "kind": "diff-file", "spec": "fixtures/sample.diff" },
+  "stats": { "filesChanged": 1, "insertions": 7, "deletions": 1 },
+  "diff": {
+    "files": [
+      {
+        "filePath": "src/foo.ts",
+        "hunks": [
+          {
+            "id": "src/foo.ts:1,6:1,9",
+            "oldStart": 1,
+            "oldLines": 6,
+            "newStart": 1,
+            "newLines": 9,
+            "lines": [
+              {
+                "type": "context",
+                "content": "export function add(a: number, b: number) {",
+                "oldLine": 1,
+                "newLine": 1
+              },
+              { "type": "del", "content": "  return a + b;", "oldLine": 2 },
+              { "type": "add", "content": "  const sum = a + b;", "newLine": 2 },
+              { "type": "add", "content": "  return sum;", "newLine": 3 },
+              { "type": "context", "content": "}", "oldLine": 3, "newLine": 4 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "groups": [
+    {
+      "id": "g1",
+      "title": "Arithmetic helper tweaks",
+      "rationale": "Refines addition flow and adds division with guardrails.",
+      "risk": "medium",
+      "hunkIds": ["src/foo.ts:1,6:1,9"],
+      "suggestedTests": ["Run calculator unit tests"]
+    }
+  ],
+  "annotations": [
+    {
+      "id": "a1",
+      "kind": "explain",
+      "confidence": 0.7,
+      "title": "Guarded division",
+      "bodyMarkdown": "Division now throws when `b === 0`.",
+      "anchor": {
+        "filePath": "src/foo.ts",
+        "side": "new",
+        "line": 8,
+        "hunkId": "src/foo.ts:1,6:1,9"
+      },
+      "actions": [{ "label": "Ask about this", "action": "openChat", "scope": "group" }]
+    }
+  ],
+  "findings": [
+    {
+      "id": "f1",
+      "kind": "flag",
+      "flagClass": "investigate",
+      "confidence": 0.4,
+      "title": "Division by zero now throws",
+      "detailMarkdown": "Ensure callers handle the thrown error.",
+      "evidence": [
+        {
+          "filePath": "src/foo.ts",
+          "side": "new",
+          "lineRange": [7, 9],
+          "hunkId": "src/foo.ts:1,6:1,9"
+        }
+      ],
+      "status": "open"
+    }
+  ]
+}

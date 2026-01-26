@@ -1,0 +1,13 @@
+{
+  "runId": "01JFIXTURE",
+  "createdAt": "2026-01-25T12:00:00.000Z",
+  "repoRoot": "/repo",
+  "branch": "main",
+  "headSha": "abc123",
+  "dirty": false,
+  "diffSource": { "kind": "diff-file", "spec": "fixtures/sample.diff" },
+  "stats": { "filesChanged": 1, "insertions": 7, "deletions": 1 },
+  "groupsCount": 1,
+  "findingsCount": 0,
+  "flagsCount": 1
+}

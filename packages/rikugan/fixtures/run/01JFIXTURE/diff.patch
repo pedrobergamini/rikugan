@@ -1,0 +1,21 @@
+diff --git a/src/foo.ts b/src/foo.ts
+index 83db48f..b2dc011 100644
+--- a/src/foo.ts
++++ b/src/foo.ts
+@@ -1,6 +1,9 @@
+ export function add(a: number, b: number) {
+-  return a + b;
++  const sum = a + b;
++  return sum;
+ }
+ 
+ export function multiply(a: number, b: number) {
+   return a * b;
+ }
++
++export function divide(a: number, b: number) {
++  if (b === 0) {
++    throw new Error("Division by zero");
++  }
++  return a / b;
++}
