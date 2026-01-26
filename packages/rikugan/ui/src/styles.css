@@ -404,6 +404,10 @@ button.ghost.small {
   box-shadow: 0 0 0 1px rgba(82, 225, 199, 0.35);
 }
 
+.evidence-line .diff-code {
+  background: rgba(82, 225, 199, 0.18);
+}
+
 .collapse-context .diff-code-part .diff-code {
   opacity: 0.35;
 }

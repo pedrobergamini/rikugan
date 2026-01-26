@@ -14,8 +14,9 @@ const RunView: React.FC = () => {
   const [activeGroupId, setActiveGroupId] = React.useState<string | null>(null);
   const [selectedEvidence, setSelectedEvidence] = React.useState<{
     filePath: string;
-    side?: string;
+    side?: "old" | "new";
     line?: number;
+    lineRange?: [number, number];
     hunkId?: string;
   } | null>(null);
   const [findingsTab, setFindingsTab] = React.useState<"all" | "bug" | "flag">("all");
@@ -294,7 +295,13 @@ function renderGroupDiffs(
   hunkMap: Map<string, { file: any; hunk: any; filePath: string }>,
   viewType: "unified" | "split",
   annotationsByLine: Map<string, Annotation[]>,
-  selectedEvidence: { filePath: string; side?: string; line?: number; hunkId?: string } | null,
+  selectedEvidence: {
+    filePath: string;
+    side?: "old" | "new";
+    line?: number;
+    lineRange?: [number, number];
+    hunkId?: string;
+  } | null,
   collapsedFiles: Set<string>,
   setCollapsedFiles: React.Dispatch<React.SetStateAction<Set<string>>>
 ) {
@@ -327,7 +334,10 @@ function renderGroupDiffs(
             generateLineClassName={({ changes, defaultGenerate }) => {
               const base = defaultGenerate();
               const changeType = changes[0]?.type ?? "normal";
-              return `${base} diff-line-${changeType}`;
+              const highlight = shouldHighlightLine(filePath, changes, selectedEvidence)
+                ? " evidence-line"
+                : "";
+              return `${base} diff-line-${changeType}${highlight}`;
             }}
           >
             {(hunksToRender: any[]) =>
@@ -368,7 +378,10 @@ function renderGutter(
           <span className={`annotation-dot ${annotation.kind}`} />
           <div className="annotation-tooltip">
             <div className="annotation-title">{annotation.title}</div>
-            <div className="annotation-body">{annotation.bodyMarkdown}</div>
+            <div
+              className="annotation-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(annotation.bodyMarkdown) }}
+            />
             <button className="ghost small">Ask about this</button>
           </div>
         </div>
@@ -382,6 +395,48 @@ function getLineNumber(change: any, side: "old" | "new") {
   if (change.lineNumber) return change.lineNumber;
   if (side === "old") return change.oldLineNumber ?? null;
   return change.newLineNumber ?? null;
+}
+
+function renderMarkdown(input: string) {
+  const escaped = input.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const withCode = escaped.replace(/`([^`]+)`/g, "<code>$1</code>");
+  const withBold = withCode.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  return withBold.replace(/\n/g, "<br/>");
+}
+
+function shouldHighlightLine(
+  filePath: string,
+  changes: any[],
+  evidence: {
+    filePath: string;
+    side?: "old" | "new";
+    line?: number;
+    lineRange?: [number, number];
+  } | null
+) {
+  if (!evidence || evidence.filePath !== filePath) return false;
+  for (const change of changes) {
+    const oldLine = change.oldLineNumber ?? (change.type === "delete" ? change.lineNumber : null);
+    const newLine = change.newLineNumber ?? (change.type === "insert" ? change.lineNumber : null);
+    if (evidence.side === "old") {
+      if (matchesLine(oldLine, evidence.line, evidence.lineRange)) return true;
+    } else if (evidence.side === "new") {
+      if (matchesLine(newLine, evidence.line, evidence.lineRange)) return true;
+    } else if (
+      matchesLine(oldLine, evidence.line, evidence.lineRange) ||
+      matchesLine(newLine, evidence.line, evidence.lineRange)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function matchesLine(line: number | null, target?: number, range?: [number, number]) {
+  if (!line) return false;
+  if (typeof target === "number" && line === target) return true;
+  if (range && line >= range[0] && line <= range[1]) return true;
+  return false;
 }
 
 function scrollToGroup(groupId: string) {
@@ -399,7 +454,12 @@ function handleFindingClick(
 ) {
   const evidence = finding.evidence[0];
   if (!evidence) return;
-  const target = { filePath: evidence.filePath, side: evidence.side, hunkId: evidence.hunkId };
+  const target = {
+    filePath: evidence.filePath,
+    side: evidence.side,
+    lineRange: evidence.lineRange,
+    hunkId: evidence.hunkId
+  };
   setSelectedEvidence(target);
   if (evidence.hunkId) {
     const hunkEl = document.querySelector(`[data-hunk-id="${evidence.hunkId}"]`);
