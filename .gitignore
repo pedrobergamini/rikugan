@@ -1,0 +1,9 @@
+node_modules/
+.pnpm-store/
+.rikugan/
+packages/rikugan/node_modules/
+packages/rikugan/ui/node_modules/
+packages/rikugan/dist/
+packages/rikugan/ui/dist/
+packages/rikugan/test-results/
+packages/rikugan/tests/tmp/

@@ -1,0 +1,16 @@
+{
+  "name": "rikugan-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@9.15.3",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -C packages/rikugan build",
+    "test": "pnpm -C packages/rikugan test",
+    "lint": "pnpm -C packages/rikugan lint",
+    "format": "pnpm -C packages/rikugan format",
+    "typecheck": "pnpm -C packages/rikugan typecheck"
+  }
+}
