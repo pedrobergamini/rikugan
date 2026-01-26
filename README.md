@@ -41,6 +41,22 @@ pnpm install
 pnpm -C packages/rikugan test
 ```
 
+## Codex skill
+
+This repo includes a packaged Codex skill for running Rikugan from Codex or other agents:
+
+```
+skills/rikugan-cli.skill
+```
+
+To install it in your global Codex skills directory:
+
+```bash
+cp skills/rikugan-cli.skill ~/.codex/skills/
+```
+
+Then in Codex, explicitly ask to run Rikugan (e.g. “run rikugan review --staged”).
+
 ## License
 
 MIT
