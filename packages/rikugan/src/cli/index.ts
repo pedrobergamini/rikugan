@@ -224,8 +224,10 @@ program
     }
 
     for (const run of sliced) {
+      const shortSha = run.headSha.slice(0, 7);
       console.log(
         `${chalk.cyan(run.runId)} ${chalk.gray(run.createdAt)} ${run.branch} ` +
+          `${shortSha} ${run.diffSource.kind} ` +
           `${run.stats.filesChanged} files (+${run.stats.insertions}/-${run.stats.deletions}), ` +
           `${run.groupsCount} groups, ${run.findingsCount} bugs, ${run.flagsCount} flags`
       );
