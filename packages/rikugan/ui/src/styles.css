@@ -150,6 +150,37 @@ button.ghost.small {
   padding: 6px 12px;
 }
 
+.export-menu {
+  position: relative;
+}
+
+.export-dropdown {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 160px;
+  box-shadow: 0 12px 20px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  z-index: 20;
+}
+
+.export-dropdown a {
+  color: var(--text);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.export-dropdown a:hover {
+  background: rgba(82, 225, 199, 0.12);
+}
+
 .layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 320px;

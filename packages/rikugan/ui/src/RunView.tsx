@@ -23,6 +23,7 @@ const RunView: React.FC = () => {
   const [collapsedFiles, setCollapsedFiles] = React.useState<Set<string>>(new Set());
   const [expandedHunks, setExpandedHunks] = React.useState<Set<string>>(new Set());
   const [flashToken, setFlashToken] = React.useState(0);
+  const [showExport, setShowExport] = React.useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -142,6 +143,8 @@ const RunView: React.FC = () => {
     );
   }
 
+  const repoName = review.repo.root.split("/").filter(Boolean).slice(-1)[0] ?? review.repo.root;
+
   return (
     <div className={`page run ${collapseContext ? "collapse-context" : ""}`}>
       <header className="top-bar">
@@ -150,7 +153,7 @@ const RunView: React.FC = () => {
           <div>
             <div className="brand-title">Rikugan</div>
             <div className="brand-subtitle">
-              {review.repo.branch} · {review.runId}
+              {repoName} · {review.repo.branch} · {review.runId}
             </div>
           </div>
         </div>
@@ -181,7 +184,21 @@ const RunView: React.FC = () => {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <button className="ghost">Export</button>
+          <div className="export-menu">
+            <button className="ghost" onClick={() => setShowExport((v) => !v)}>
+              Export
+            </button>
+            {showExport ? (
+              <div className="export-dropdown">
+                <a href={`/api/run/${review.runId}`} download>
+                  Review JSON
+                </a>
+                <a href={`/api/run/${review.runId}/diff`} download>
+                  Diff Patch
+                </a>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
       {review.ai?.fallbackReason ? (
