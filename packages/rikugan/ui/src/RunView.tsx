@@ -22,6 +22,7 @@ const RunView: React.FC = () => {
   const [findingsTab, setFindingsTab] = React.useState<"all" | "bug" | "flag">("all");
   const [collapsedFiles, setCollapsedFiles] = React.useState<Set<string>>(new Set());
   const [expandedHunks, setExpandedHunks] = React.useState<Set<string>>(new Set());
+  const [flashToken, setFlashToken] = React.useState(0);
 
   React.useEffect(() => {
     if (!id) return;
@@ -220,7 +221,8 @@ const RunView: React.FC = () => {
                 collapsedFiles,
                 setCollapsedFiles,
                 expandedHunks,
-                setExpandedHunks
+                setExpandedHunks,
+                flashToken
               )}
             </section>
           ))}
@@ -258,7 +260,7 @@ const RunView: React.FC = () => {
                 <button
                   key={finding.id}
                   className="finding-card"
-                  onClick={() => handleFindingClick(finding, setSelectedEvidence)}
+                  onClick={() => handleFindingClick(finding, setSelectedEvidence, setFlashToken)}
                 >
                   <div className="finding-title">{finding.title}</div>
                   <div className="finding-meta">
@@ -308,7 +310,8 @@ function renderGroupDiffs(
   collapsedFiles: Set<string>,
   setCollapsedFiles: React.Dispatch<React.SetStateAction<Set<string>>>,
   expandedHunks: Set<string>,
-  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>
+  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>,
+  flashToken: number
 ) {
   const fileGroups = new Map<string, { file: any; hunks: any[] }>();
 
@@ -344,7 +347,11 @@ function renderGroupDiffs(
               const highlight = shouldHighlightLine(filePath, changes, selectedEvidence)
                 ? " evidence-line"
                 : "";
-              return `${base} diff-line-${changeType}${highlight}`;
+              const flash =
+                flashToken > 0 && shouldHighlightLine(filePath, changes, selectedEvidence)
+                  ? " evidence-flash"
+                  : "";
+              return `${base} diff-line-${changeType}${highlight}${flash}`;
             }}
           >
             {(hunksToRender: any[]) =>
@@ -509,7 +516,8 @@ function handleFindingClick(
       lineRange?: [number, number];
       hunkId?: string;
     } | null>
-  >
+  >,
+  setFlashToken: React.Dispatch<React.SetStateAction<number>>
 ) {
   const evidence = finding.evidence[0];
   if (!evidence) return;
@@ -520,6 +528,8 @@ function handleFindingClick(
     hunkId: evidence.hunkId
   };
   setSelectedEvidence(target);
+  setFlashToken(Date.now());
+  setTimeout(() => setFlashToken(0), 1200);
   if (evidence.hunkId) {
     const hunkEl = document.querySelector(`[data-hunk-id="${evidence.hunkId}"]`);
     if (hunkEl) {

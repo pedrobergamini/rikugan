@@ -408,6 +408,19 @@ button.ghost.small {
   background: rgba(82, 225, 199, 0.18);
 }
 
+.evidence-flash .diff-code {
+  animation: evidenceFlash 1.2s ease-out;
+}
+
+@keyframes evidenceFlash {
+  0% {
+    background: rgba(82, 225, 199, 0.55);
+  }
+  100% {
+    background: rgba(82, 225, 199, 0.18);
+  }
+}
+
 .hunk-explainer {
   margin: 8px 12px;
   padding: 10px 12px;
