@@ -226,7 +226,8 @@ program
     for (const run of sliced) {
       console.log(
         `${chalk.cyan(run.runId)} ${chalk.gray(run.createdAt)} ${run.branch} ` +
-          `${run.stats.filesChanged} files, ${run.groupsCount} groups, ${run.findingsCount} bugs`
+          `${run.stats.filesChanged} files (+${run.stats.insertions}/-${run.stats.deletions}), ` +
+          `${run.groupsCount} groups, ${run.findingsCount} bugs, ${run.flagsCount} flags`
       );
     }
   });
