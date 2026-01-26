@@ -2,6 +2,7 @@ import React from "react";
 import { Diff, Hunk, getChangeKey, parseDiff } from "react-diff-view";
 import { useParams } from "react-router-dom";
 
+import ThemeToggle from "./ThemeToggle";
 import type { Annotation, Finding, ReviewGroup, ReviewJson } from "./types";
 
 const RunView: React.FC = () => {
@@ -97,6 +98,29 @@ const RunView: React.FC = () => {
     return metrics;
   }, [review, hunkMap]);
 
+  const runMetrics = React.useMemo(() => {
+    if (!review) {
+      return { groups: 0, hunks: 0, files: 0, bugs: 0, flags: 0, insertions: 0, deletions: 0 };
+    }
+    const hunkIds = new Set<string>();
+    for (const group of review.groups) {
+      for (const hunkId of group.hunkIds) {
+        hunkIds.add(hunkId);
+      }
+    }
+    const bugs = review.findings.filter((finding) => finding.kind === "bug").length;
+    const flags = review.findings.filter((finding) => finding.kind === "flag").length;
+    return {
+      groups: review.groups.length,
+      hunks: hunkIds.size,
+      files: review.stats.filesChanged,
+      bugs,
+      flags,
+      insertions: review.stats.insertions,
+      deletions: review.stats.deletions
+    };
+  }, [review]);
+
   React.useEffect(() => {
     if (!review) return;
     const elements = Array.from(document.querySelectorAll("[data-group-id]")) as HTMLElement[];
@@ -130,11 +154,16 @@ const RunView: React.FC = () => {
     return (
       <div className="page run">
         <header className="top-bar">
-          <div className="brand">
-            <span className="logo">R</span>
-            <div>
-              <div className="brand-title">Rikugan</div>
-              <div className="brand-subtitle">Loading run...</div>
+          <div className="top-bar-inner">
+            <div className="brand">
+              <span className="logo">R</span>
+              <div>
+                <div className="brand-title">Rikugan</div>
+                <div className="brand-subtitle">Loading run...</div>
+              </div>
+            </div>
+            <div className="top-actions">
+              <ThemeToggle />
             </div>
           </div>
         </header>
@@ -148,56 +177,62 @@ const RunView: React.FC = () => {
   return (
     <div className={`page run ${collapseContext ? "collapse-context" : ""}`}>
       <header className="top-bar">
-        <div className="brand">
-          <span className="logo">R</span>
-          <div>
-            <div className="brand-title">Rikugan</div>
-            <div className="brand-subtitle">
-              {repoName} · {review.repo.branch} · {review.runId}
+        <div className="top-bar-inner">
+          <div className="brand">
+            <span className="logo">R</span>
+            <div className="brand-copy">
+              <div className="brand-title">Rikugan</div>
+              <div className="brand-subtitle">Review run</div>
+              <div className="brand-meta">
+                <span className="meta-chip">{repoName}</span>
+                <span className="meta-chip">{review.repo.branch}</span>
+                <span className="meta-chip">Run {review.runId}</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="top-actions">
-          <div className="toggle-group">
+          <div className="top-actions">
+            <div className="toggle-group">
+              <button
+                className={viewType === "unified" ? "active" : ""}
+                onClick={() => setViewType("unified")}
+              >
+                Unified
+              </button>
+              <button
+                className={viewType === "split" ? "active" : ""}
+                onClick={() => setViewType("split")}
+              >
+                Split
+              </button>
+            </div>
             <button
-              className={viewType === "unified" ? "active" : ""}
-              onClick={() => setViewType("unified")}
+              className={collapseContext ? "active" : ""}
+              onClick={() => setCollapseContext((v) => !v)}
             >
-              Unified
+              Collapse context
             </button>
-            <button
-              className={viewType === "split" ? "active" : ""}
-              onClick={() => setViewType("split")}
-            >
-              Split
-            </button>
-          </div>
-          <button
-            className={collapseContext ? "active" : ""}
-            onClick={() => setCollapseContext((v) => !v)}
-          >
-            Collapse context
-          </button>
-          <input
-            className="search"
-            placeholder="Search groups or files"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <div className="export-menu">
-            <button className="ghost" onClick={() => setShowExport((v) => !v)}>
-              Export
-            </button>
-            {showExport ? (
-              <div className="export-dropdown">
-                <a href={`/api/run/${review.runId}`} download>
-                  Review JSON
-                </a>
-                <a href={`/api/run/${review.runId}/diff`} download>
-                  Diff Patch
-                </a>
-              </div>
-            ) : null}
+            <input
+              className="search"
+              placeholder="Search groups or files"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <div className="export-menu">
+              <button className="ghost" onClick={() => setShowExport((v) => !v)}>
+                Export
+              </button>
+              {showExport ? (
+                <div className="export-dropdown">
+                  <a href={`/api/run/${review.runId}`} download>
+                    Review JSON
+                  </a>
+                  <a href={`/api/run/${review.runId}/diff`} download>
+                    Diff Patch
+                  </a>
+                </div>
+              ) : null}
+            </div>
+            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -208,8 +243,13 @@ const RunView: React.FC = () => {
       ) : null}
 
       <div className="layout">
-        <aside className="pane story">
+        <aside className="pane side story">
           <h2>Story</h2>
+          <div className="rail-meta">
+            <span className="rail-chip">{runMetrics.groups} groups</span>
+            <span className="rail-chip">{runMetrics.hunks} hunks</span>
+            <span className="rail-chip">{runMetrics.files} files</span>
+          </div>
           <div className="story-outline">
             {groups.map((group) => {
               const metrics = groupMetrics.get(group.id);
@@ -238,8 +278,13 @@ const RunView: React.FC = () => {
         </aside>
 
         <main className="pane content">
-          {groups.map((group) => (
-            <section key={group.id} className="group-card" data-group-id={group.id}>
+          {groups.map((group, index) => (
+            <section
+              key={group.id}
+              className="group-card"
+              data-group-id={group.id}
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
               <header className="group-header">
                 <div>
                   <h3>{group.title}</h3>
@@ -282,7 +327,7 @@ const RunView: React.FC = () => {
           ))}
         </main>
 
-        <aside className="pane findings">
+        <aside className="pane side findings">
           <div className="findings-header">
             <h2>Findings</h2>
             <div className="tabs">
@@ -305,6 +350,13 @@ const RunView: React.FC = () => {
                 Flags
               </button>
             </div>
+          </div>
+          <div className="rail-meta">
+            <span className="rail-chip">Bugs {runMetrics.bugs}</span>
+            <span className="rail-chip">Flags {runMetrics.flags}</span>
+            <span className="rail-chip">
+              {runMetrics.insertions} + / {runMetrics.deletions} -
+            </span>
           </div>
           <div className="findings-list">
             {filteredFindings.length === 0 ? (
@@ -389,39 +441,41 @@ function renderGroupDiffs(
           </button>
         </div>
         {isCollapsed ? null : (
-          <Diff
-            viewType={viewType}
-            diffType={file.type ?? "modify"}
-            hunks={hunks}
-            renderGutter={(options: any) => renderGutter(options, annotationsByLine, filePath)}
-            widgets={widgets}
-            generateLineClassName={({ changes, defaultGenerate }) => {
-              const base = defaultGenerate();
-              const changeType = changes[0]?.type ?? "normal";
-              const highlight = shouldHighlightLine(filePath, changes, selectedEvidence)
-                ? " evidence-line"
-                : "";
-              const flash =
-                flashToken > 0 && shouldHighlightLine(filePath, changes, selectedEvidence)
-                  ? " evidence-flash"
+          <div className="diff-scroll">
+            <Diff
+              viewType={viewType}
+              diffType={file.type ?? "modify"}
+              hunks={hunks}
+              renderGutter={(options: any) => renderGutter(options, annotationsByLine, filePath)}
+              widgets={widgets}
+              generateLineClassName={({ changes, defaultGenerate }) => {
+                const base = defaultGenerate();
+                const changeType = changes[0]?.type ?? "normal";
+                const highlight = shouldHighlightLine(filePath, changes, selectedEvidence)
+                  ? " evidence-line"
                   : "";
-              return `${base} diff-line-${changeType}${highlight}${flash}`;
-            }}
-          >
-            {(hunksToRender: any[]) =>
-              hunksToRender.map((hunk) => (
-                <div
-                  key={hunk.content}
-                  data-hunk-id={getHunkId(filePath, hunk)}
-                  className={`hunk-wrapper ${
-                    selectedEvidence?.hunkId === getHunkId(filePath, hunk) ? "highlight" : ""
-                  }`}
-                >
-                  <Hunk hunk={hunk} />
-                </div>
-              ))
-            }
-          </Diff>
+                const flash =
+                  flashToken > 0 && shouldHighlightLine(filePath, changes, selectedEvidence)
+                    ? " evidence-flash"
+                    : "";
+                return `${base} diff-line-${changeType}${highlight}${flash}`;
+              }}
+            >
+              {(hunksToRender: any[]) =>
+                hunksToRender.map((hunk) => (
+                  <div
+                    key={hunk.content}
+                    data-hunk-id={getHunkId(filePath, hunk)}
+                    className={`hunk-wrapper ${
+                      selectedEvidence?.hunkId === getHunkId(filePath, hunk) ? "highlight" : ""
+                    }`}
+                  >
+                    <Hunk hunk={hunk} />
+                  </div>
+                ))
+              }
+            </Diff>
+          </div>
         )}
       </div>
     );
@@ -527,7 +581,7 @@ function buildHunkWidgets(
         <div className="hunk-explainer-body">
           {isExpanded
             ? group.rationale
-            : `${group.rationale.slice(0, 120)}${group.rationale.length > 120 ? "…" : ""}`}
+            : `${group.rationale.slice(0, 120)}${group.rationale.length > 120 ? "..." : ""}`}
         </div>
         <button className="ghost small" onClick={() => toggleHunk(hunkId, setExpandedHunks)}>
           {isExpanded ? "Less" : "More"}

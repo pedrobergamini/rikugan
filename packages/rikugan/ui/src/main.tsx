@@ -5,6 +5,9 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "react-diff-view/style/index.css";
 import "./styles.css";
+import { initializeTheme } from "./theme";
+
+initializeTheme();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
