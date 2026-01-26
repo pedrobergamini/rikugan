@@ -13,6 +13,15 @@
   --risk-low: #4dd397;
   --risk-medium: #ffb562;
   --risk-high: #ff6b6b;
+  --diff-background-color: #121724;
+  --diff-text-color: #e7ecf6;
+  --diff-font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  --diff-gutter-insert-background-color: rgba(77, 211, 151, 0.16);
+  --diff-gutter-delete-background-color: rgba(255, 107, 107, 0.15);
+  --diff-code-insert-background-color: rgba(77, 211, 151, 0.12);
+  --diff-code-delete-background-color: rgba(255, 107, 107, 0.12);
+  --diff-selection-background-color: rgba(82, 225, 199, 0.35);
 }
 
 * {
@@ -336,6 +345,22 @@ button.ghost.small {
 
 .diff-view {
   background: var(--panel-alt);
+}
+
+.diff {
+  border-radius: 12px;
+}
+
+.diff-gutter {
+  color: var(--muted);
+}
+
+.diff-line {
+  transition: background 0.2s ease;
+}
+
+.diff-line:hover .diff-code {
+  background: rgba(82, 225, 199, 0.08);
 }
 
 .gutter-cell {
