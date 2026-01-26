@@ -45,7 +45,9 @@ export async function getDiff(options: DiffOptions): Promise<DiffResult> {
   }
 
   if (options.commit) {
-    const result = await execa("git", ["show", options.commit], { cwd: options.cwd });
+    const result = await execa("git", ["show", options.commit, "-M", "-C", "--", ...pathspecs], {
+      cwd: options.cwd
+    });
     return { diffText: result.stdout, diffSource: { kind: "commit", spec: options.commit } };
   }
 

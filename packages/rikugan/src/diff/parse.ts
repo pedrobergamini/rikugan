@@ -47,11 +47,14 @@ export function parseUnifiedDiff(diffText: string): ParsedDiff {
       continue;
     }
 
-    if (!currentFile) {
-      continue;
-    }
-
     if (line.startsWith("--- ")) {
+      if (!currentFile || currentFile.hunks.length > 0) {
+        flushFile();
+        currentFile = {
+          filePath: "",
+          hunks: []
+        };
+      }
       const path = line.replace(/^---\s+/, "").replace(/^a\//, "");
       currentFile.oldPath = path === "/dev/null" ? undefined : path;
       if (!currentFile.filePath && currentFile.oldPath) {
@@ -61,11 +64,21 @@ export function parseUnifiedDiff(diffText: string): ParsedDiff {
     }
 
     if (line.startsWith("+++ ")) {
+      if (!currentFile) {
+        currentFile = {
+          filePath: "",
+          hunks: []
+        };
+      }
       const path = line.replace(/^\+\+\+\s+/, "").replace(/^b\//, "");
       currentFile.newPath = path === "/dev/null" ? undefined : path;
       if (currentFile.newPath) {
         currentFile.filePath = currentFile.newPath;
       }
+      continue;
+    }
+
+    if (!currentFile) {
       continue;
     }
 

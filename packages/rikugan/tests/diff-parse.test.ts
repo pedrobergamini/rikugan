@@ -9,6 +9,7 @@ import { computeDiffStats } from "../src/diff/stats";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(testDir, "../fixtures/sample.diff");
+const simpleFixturePath = path.resolve(testDir, "../fixtures/simple.diff");
 
 describe("parseUnifiedDiff", () => {
   it("parses files, hunks, and line numbers", async () => {
@@ -28,5 +29,14 @@ describe("parseUnifiedDiff", () => {
     expect(stats.filesChanged).toBe(1);
     expect(stats.insertions).toBeGreaterThan(0);
     expect(stats.deletions).toBeGreaterThan(0);
+  });
+
+  it("parses headerless unified diffs", async () => {
+    const diffText = await fs.readFile(simpleFixturePath, "utf8");
+    const parsed = parseUnifiedDiff(diffText);
+    expect(parsed.files.length).toBe(1);
+    const file = parsed.files[0];
+    expect(file.filePath).toBe("hello.txt");
+    expect(file.hunks.length).toBe(1);
   });
 });

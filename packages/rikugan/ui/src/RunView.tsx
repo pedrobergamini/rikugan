@@ -175,6 +175,11 @@ const RunView: React.FC = () => {
           <button className="ghost">Export</button>
         </div>
       </header>
+      {review.ai?.fallbackReason ? (
+        <div className="banner warning">
+          <strong>Heuristic mode:</strong> {review.ai.fallbackReason}
+        </div>
+      ) : null}
 
       <div className="layout">
         <aside className="pane story">

@@ -60,6 +60,19 @@ code {
   border-bottom: 1px solid var(--border);
 }
 
+.banner {
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 181, 98, 0.15);
+  color: var(--text);
+}
+
+.banner.warning strong {
+  margin-right: 6px;
+}
+
 .brand {
   display: flex;
   align-items: center;

@@ -59,6 +59,10 @@ program
       paths: options.paths
     });
 
+    if (!diffResult.diffText.trim()) {
+      console.log(chalk.yellow("Diff is empty. Nothing to review."));
+    }
+
     const parsed = parseUnifiedDiff(diffResult.diffText);
     const stats = computeDiffStats(parsed);
     const units = buildChangeUnits(parsed);
@@ -87,6 +91,7 @@ program
     let groups = heuristicGroups(units);
     let annotations: ReviewJson["annotations"] = [];
     let findings: ReviewJson["findings"] = [];
+    let fallbackReason: string | undefined;
 
     const codexOptions: CodexOptions = {
       model: options.model,
@@ -95,7 +100,8 @@ program
       cd: options.cd ?? repoRoot
     };
 
-    if (await isCodexAvailable()) {
+    const codexAvailable = await isCodexAvailable();
+    if (codexAvailable) {
       const groupingPrompt = buildGroupingPrompt(parsed, units, groups);
       const groupingResult = await runCodexTask(
         {
@@ -111,6 +117,8 @@ program
 
       if (groupingResult?.data) {
         groups = groupingResult.data.groups;
+      } else {
+        fallbackReason = "Codex grouping failed schema validation.";
       }
 
       const annotationsPrompt = buildAnnotationsPrompt(parsed, groups);
@@ -128,6 +136,8 @@ program
 
       if (annotationsResult?.data) {
         annotations = annotationsResult.data.annotations;
+      } else if (!fallbackReason) {
+        fallbackReason = "Codex annotations failed schema validation.";
       }
 
       const findingsPrompt = buildFindingsPrompt(parsed, groups);
@@ -145,11 +155,19 @@ program
 
       if (findingsResult?.data) {
         findings = findingsResult.data.findings;
+      } else if (!fallbackReason) {
+        fallbackReason = "Codex findings failed schema validation.";
       }
+    } else {
+      fallbackReason = "Codex is not available; used heuristic grouping.";
     }
 
     const review: ReviewJson = {
       ...baseReview,
+      ai: {
+        usedCodex: codexAvailable && !fallbackReason,
+        ...(fallbackReason ? { fallbackReason } : {})
+      },
       groups,
       annotations,
       findings

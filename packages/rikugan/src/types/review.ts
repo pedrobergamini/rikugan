@@ -18,6 +18,10 @@ export interface ReviewJson {
   version: "1.0";
   runId: string;
   createdAt: string;
+  ai?: {
+    usedCodex: boolean;
+    fallbackReason?: string;
+  };
   repo: {
     root: string;
     headSha: string;
