@@ -19,6 +19,7 @@ const RunView: React.FC = () => {
     hunkId?: string;
   } | null>(null);
   const [findingsTab, setFindingsTab] = React.useState<"all" | "bug" | "flag">("all");
+  const [collapsedFiles, setCollapsedFiles] = React.useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     if (!id) return;
@@ -208,7 +209,15 @@ const RunView: React.FC = () => {
                 </div>
               </header>
 
-              {renderGroupDiffs(group, hunkMap, viewType, annotationsByLine, selectedEvidence)}
+              {renderGroupDiffs(
+                group,
+                hunkMap,
+                viewType,
+                annotationsByLine,
+                selectedEvidence,
+                collapsedFiles,
+                setCollapsedFiles
+              )}
             </section>
           ))}
         </main>
@@ -285,7 +294,9 @@ function renderGroupDiffs(
   hunkMap: Map<string, { file: any; hunk: any; filePath: string }>,
   viewType: "unified" | "split",
   annotationsByLine: Map<string, Annotation[]>,
-  selectedEvidence: { filePath: string; side?: string; line?: number; hunkId?: string } | null
+  selectedEvidence: { filePath: string; side?: string; line?: number; hunkId?: string } | null,
+  collapsedFiles: Set<string>,
+  setCollapsedFiles: React.Dispatch<React.SetStateAction<Set<string>>>
 ) {
   const fileGroups = new Map<string, { file: any; hunks: any[] }>();
 
@@ -297,31 +308,46 @@ function renderGroupDiffs(
     fileGroups.set(entry.filePath, existing);
   }
 
-  return Array.from(fileGroups.entries()).map(([filePath, { file, hunks }]) => (
-    <div key={`${group.id}-${filePath}`} className="file-block">
-      <div className="file-header">{filePath}</div>
-      <Diff
-        viewType={viewType}
-        diffType={file.type ?? "modify"}
-        hunks={hunks}
-        renderGutter={(options: any) => renderGutter(options, annotationsByLine, filePath)}
-      >
-        {(hunksToRender: any[]) =>
-          hunksToRender.map((hunk) => (
-            <div
-              key={hunk.content}
-              data-hunk-id={getHunkId(filePath, hunk)}
-              className={`hunk-wrapper ${
-                selectedEvidence?.hunkId === getHunkId(filePath, hunk) ? "highlight" : ""
-              }`}
-            >
-              <Hunk hunk={hunk} />
-            </div>
-          ))
-        }
-      </Diff>
-    </div>
-  ));
+  return Array.from(fileGroups.entries()).map(([filePath, { file, hunks }]) => {
+    const isCollapsed = collapsedFiles.has(filePath);
+    return (
+      <div key={`${group.id}-${filePath}`} className="file-block">
+        <div className="file-header">
+          <span>{filePath}</span>
+          <button className="ghost small" onClick={() => toggleFile(filePath, setCollapsedFiles)}>
+            {isCollapsed ? "Expand" : "Collapse"}
+          </button>
+        </div>
+        {isCollapsed ? null : (
+          <Diff
+            viewType={viewType}
+            diffType={file.type ?? "modify"}
+            hunks={hunks}
+            renderGutter={(options: any) => renderGutter(options, annotationsByLine, filePath)}
+            generateLineClassName={({ changes, defaultGenerate }) => {
+              const base = defaultGenerate();
+              const changeType = changes[0]?.type ?? "normal";
+              return `${base} diff-line-${changeType}`;
+            }}
+          >
+            {(hunksToRender: any[]) =>
+              hunksToRender.map((hunk) => (
+                <div
+                  key={hunk.content}
+                  data-hunk-id={getHunkId(filePath, hunk)}
+                  className={`hunk-wrapper ${
+                    selectedEvidence?.hunkId === getHunkId(filePath, hunk) ? "highlight" : ""
+                  }`}
+                >
+                  <Hunk hunk={hunk} />
+                </div>
+              ))
+            }
+          </Diff>
+        )}
+      </div>
+    );
+  });
 }
 
 function renderGutter(
@@ -390,4 +416,19 @@ function handleFindingClick(
       lineEl.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }
+}
+
+function toggleFile(
+  filePath: string,
+  setCollapsedFiles: React.Dispatch<React.SetStateAction<Set<string>>>
+) {
+  setCollapsedFiles((current) => {
+    const next = new Set(current);
+    if (next.has(filePath)) {
+      next.delete(filePath);
+    } else {
+      next.add(filePath);
+    }
+    return next;
+  });
 }
