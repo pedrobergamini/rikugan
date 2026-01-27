@@ -488,6 +488,44 @@ button.ghost.small {
   color: var(--muted);
 }
 
+.group-focus {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.context-notes {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.context-notes-title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.context-note + .context-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.context-note-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.context-note-body {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .group-meta {
   display: flex;
   flex-direction: column;

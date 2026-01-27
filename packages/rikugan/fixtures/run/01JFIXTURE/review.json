@@ -2,6 +2,11 @@
   "version": "1.0",
   "runId": "01JFIXTURE",
   "createdAt": "2026-01-25T12:00:00.000Z",
+  "ai": {
+    "usedCodex": true,
+    "model": "gpt-5.2-codex",
+    "reasoningEffort": "xhigh"
+  },
   "repo": {
     "root": "/repo",
     "headSha": "abc123",
@@ -42,10 +47,21 @@
     {
       "id": "g1",
       "title": "Arithmetic helper tweaks",
-      "rationale": "Refines addition flow and adds division with guardrails.",
+      "rationale": "Refines the addition helper to make intermediate computation explicit.",
+      "reviewFocus": ["Behavior parity for add()", "Any downstream reliance on direct return"],
       "risk": "medium",
       "hunkIds": ["src/foo.ts:1,6:1,9"],
       "suggestedTests": ["Run calculator unit tests"]
+    }
+  ],
+  "contextNotes": [
+    {
+      "id": "cn1",
+      "title": "Intermediate value makes arithmetic extensible",
+      "bodyMarkdown": "The helper now assigns the addition result to a named `sum` variable instead of returning it inline. That looks cosmetic, but it usually signals intent to reuse or extend the value (e.g., future validation, telemetry, or overflow handling) without rewriting the signature.\n\nIf later changes introduce checks or rounding, this structure keeps the logic centralized and makes it safer to evolve `add()` without surprising downstream callers.",
+      "confidence": 0.61,
+      "groupId": "g1",
+      "hunkIds": ["src/foo.ts:1,6:1,9"]
     }
   ],
   "annotations": [

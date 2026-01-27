@@ -21,6 +21,8 @@ export interface ReviewJson {
   ai?: {
     usedCodex: boolean;
     fallbackReason?: string;
+    model?: string;
+    reasoningEffort?: string;
   };
   repo: {
     root: string;
@@ -32,6 +34,7 @@ export interface ReviewJson {
   stats: DiffStats;
   diff: ParsedDiff;
   groups: ReviewGroup[];
+  contextNotes: ContextNote[];
   annotations: Annotation[];
   findings: Finding[];
 }
@@ -79,9 +82,19 @@ export interface ReviewGroup {
   id: string;
   title: string;
   rationale: string;
+  reviewFocus?: string[];
   risk: RiskLevel;
   hunkIds: string[];
   suggestedTests?: string[];
+}
+
+export interface ContextNote {
+  id: string;
+  title: string;
+  bodyMarkdown: string;
+  confidence: number;
+  groupId: string;
+  hunkIds: string[];
 }
 
 export interface Annotation {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { annotationsSchema, findingsSchema, groupsSchema } from "../src/types/schemas";
+import {
+  annotationsSchema,
+  findingsSchema,
+  groupsSchema,
+  reviewSchema
+} from "../src/types/schemas";
 
 describe("schemas", () => {
   it("validates grouping schema", () => {
@@ -51,5 +56,32 @@ describe("schemas", () => {
       ]
     };
     expect(findingsSchema.parse(data)).toEqual(data);
+  });
+
+  it("validates review schema", () => {
+    const data = {
+      findings: [
+        {
+          id: "f1",
+          kind: "flag",
+          confidence: 0.6,
+          title: "Potential issue",
+          detailMarkdown: "Investigate this",
+          evidence: [{ filePath: "src/foo.ts", lineRange: [2, 3] }],
+          status: "open"
+        }
+      ],
+      contextNotes: [
+        {
+          id: "n1",
+          title: "Context note",
+          bodyMarkdown: "Explains intent and impact.",
+          confidence: 0.6,
+          groupId: "g1",
+          hunkIds: ["file:1,1:1,1"]
+        }
+      ]
+    };
+    expect(reviewSchema.parse(data)).toEqual(data);
   });
 });

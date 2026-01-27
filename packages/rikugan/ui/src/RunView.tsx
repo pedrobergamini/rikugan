@@ -1,9 +1,9 @@
 import React from "react";
-import { Diff, Hunk, getChangeKey, parseDiff } from "react-diff-view";
+import { Diff, Hunk, parseDiff } from "react-diff-view";
 import { useParams } from "react-router-dom";
 
 import ThemeToggle from "./ThemeToggle";
-import type { Annotation, Finding, ReviewGroup, ReviewJson } from "./types";
+import type { Annotation, ContextNote, Finding, ReviewGroup, ReviewJson } from "./types";
 
 const RunView: React.FC = () => {
   const { id } = useParams();
@@ -22,7 +22,6 @@ const RunView: React.FC = () => {
   } | null>(null);
   const [findingsTab, setFindingsTab] = React.useState<"all" | "bug" | "flag">("all");
   const [collapsedFiles, setCollapsedFiles] = React.useState<Set<string>>(new Set());
-  const [expandedHunks, setExpandedHunks] = React.useState<Set<string>>(new Set());
   const [flashToken, setFlashToken] = React.useState(0);
   const [showExport, setShowExport] = React.useState(false);
 
@@ -60,6 +59,27 @@ const RunView: React.FC = () => {
       const list = map.get(key) ?? [];
       list.push(annotation);
       map.set(key, list);
+    }
+    return map;
+  }, [review]);
+
+  const contextNotesByGroup = React.useMemo(() => {
+    const map = new Map<string, ContextNote[]>();
+    if (!review) return map;
+    const groupIndex = new Map<string, ReviewGroup>();
+    for (const group of review.groups) {
+      groupIndex.set(group.id, group);
+    }
+    for (const note of review.contextNotes ?? []) {
+      const primaryGroup =
+        (note.groupId && groupIndex.get(note.groupId)) ??
+        review.groups.find((group) => note.hunkIds.some((id) => group.hunkIds.includes(id)));
+      if (!primaryGroup) {
+        continue;
+      }
+      const list = map.get(primaryGroup.id) ?? [];
+      list.push(note);
+      map.set(primaryGroup.id, list);
     }
     return map;
   }, [review]);
@@ -187,6 +207,12 @@ const RunView: React.FC = () => {
                 <span className="meta-chip">{repoName}</span>
                 <span className="meta-chip">{review.repo.branch}</span>
                 <span className="meta-chip">Run {review.runId}</span>
+                {review.ai?.model ? (
+                  <span className="meta-chip">Model {review.ai.model}</span>
+                ) : null}
+                {review.ai?.reasoningEffort ? (
+                  <span className="meta-chip">Reasoning {review.ai.reasoningEffort}</span>
+                ) : null}
               </div>
             </div>
           </div>
@@ -278,53 +304,77 @@ const RunView: React.FC = () => {
         </aside>
 
         <main className="pane content">
-          {groups.map((group, index) => (
-            <section
-              key={group.id}
-              className="group-card"
-              data-group-id={group.id}
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <header className="group-header">
-                <div>
-                  <h3>{group.title}</h3>
-                  <p>{group.rationale}</p>
-                </div>
-                <div className="group-meta">
-                  {groupMetrics.get(group.id) ? (
-                    <div className="group-metrics">
-                      <span className="badge bug">
-                        Bugs {groupMetrics.get(group.id)?.bugs ?? 0}
-                      </span>
-                      <span className="badge flag">
-                        Flags {groupMetrics.get(group.id)?.flags ?? 0}
-                      </span>
+          {groups.map((group, index) => {
+            const notes = contextNotesByGroup.get(group.id) ?? [];
+            return (
+              <section
+                key={group.id}
+                className="group-card"
+                data-group-id={group.id}
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <header className="group-header">
+                  <div>
+                    <h3>{group.title}</h3>
+                    <p>{group.rationale}</p>
+                    {group.reviewFocus?.length ? (
+                      <div className="group-focus">
+                        Review focus: {group.reviewFocus.join(" · ")}
+                      </div>
+                    ) : null}
+                    {notes.length ? (
+                      <div className="context-notes">
+                        <div className="context-notes-title">Context notes</div>
+                        {notes.map((note) => (
+                          <div key={note.id} className="context-note">
+                            <div className="context-note-title">{note.title}</div>
+                            <div
+                              className="context-note-body"
+                              dangerouslySetInnerHTML={{
+                                __html: renderMarkdown(note.bodyMarkdown)
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="group-meta">
+                    {groupMetrics.get(group.id) ? (
+                      <div className="group-metrics">
+                        <span className="badge bug">
+                          Bugs {groupMetrics.get(group.id)?.bugs ?? 0}
+                        </span>
+                        <span className="badge flag">
+                          Flags {groupMetrics.get(group.id)?.flags ?? 0}
+                        </span>
+                        <span className="badge neutral">
+                          Files {groupMetrics.get(group.id)?.files ?? 0}
+                        </span>
+                      </div>
+                    ) : null}
+                    <span className={`badge risk-${group.risk}`}>{group.risk}</span>
+                    {group.suggestedTests?.length ? (
                       <span className="badge neutral">
-                        Files {groupMetrics.get(group.id)?.files ?? 0}
+                        Tests: {group.suggestedTests.join(", ")}
                       </span>
-                    </div>
-                  ) : null}
-                  <span className={`badge risk-${group.risk}`}>{group.risk}</span>
-                  {group.suggestedTests?.length ? (
-                    <span className="badge neutral">Tests: {group.suggestedTests.join(", ")}</span>
-                  ) : null}
-                </div>
-              </header>
+                    ) : null}
+                  </div>
+                </header>
 
-              {renderGroupDiffs(
-                group,
-                hunkMap,
-                viewType,
-                annotationsByLine,
-                selectedEvidence,
-                collapsedFiles,
-                setCollapsedFiles,
-                expandedHunks,
-                setExpandedHunks,
-                flashToken
-              )}
-            </section>
-          ))}
+                {renderGroupDiffs(
+                  group,
+                  hunkMap,
+                  viewType,
+                  annotationsByLine,
+                  selectedEvidence,
+                  collapsedFiles,
+                  setCollapsedFiles,
+                  flashToken
+                )}
+              </section>
+            );
+          })}
         </main>
 
         <aside className="pane side findings">
@@ -415,8 +465,6 @@ function renderGroupDiffs(
   } | null,
   collapsedFiles: Set<string>,
   setCollapsedFiles: React.Dispatch<React.SetStateAction<Set<string>>>,
-  expandedHunks: Set<string>,
-  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>,
   flashToken: number
 ) {
   const fileGroups = new Map<string, { file: any; hunks: any[] }>();
@@ -431,7 +479,6 @@ function renderGroupDiffs(
 
   return Array.from(fileGroups.entries()).map(([filePath, { file, hunks }]) => {
     const isCollapsed = collapsedFiles.has(filePath);
-    const widgets = buildHunkWidgets(hunks, filePath, group, expandedHunks, setExpandedHunks);
     return (
       <div key={`${group.id}-${filePath}`} className="file-block">
         <div className="file-header">
@@ -447,7 +494,6 @@ function renderGroupDiffs(
               diffType={file.type ?? "modify"}
               hunks={hunks}
               renderGutter={(options: any) => renderGutter(options, annotationsByLine, filePath)}
-              widgets={widgets}
               generateLineClassName={({ changes, defaultGenerate }) => {
                 const base = defaultGenerate();
                 const changeType = changes[0]?.type ?? "normal";
@@ -559,52 +605,6 @@ function matchesLine(line: number | null, target?: number, range?: [number, numb
   if (typeof target === "number" && line === target) return true;
   if (range && line >= range[0] && line <= range[1]) return true;
   return false;
-}
-
-function buildHunkWidgets(
-  hunks: any[],
-  filePath: string,
-  group: ReviewGroup,
-  expandedHunks: Set<string>,
-  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>
-) {
-  const widgets: Record<string, React.ReactNode> = {};
-  for (const hunk of hunks) {
-    const hunkId = getHunkId(filePath, hunk);
-    const firstChange = hunk.changes?.[0];
-    if (!firstChange) continue;
-    const changeKey = getChangeKey(firstChange);
-    const isExpanded = expandedHunks.has(hunkId);
-    widgets[changeKey] = (
-      <div className="hunk-explainer">
-        <div className="hunk-explainer-title">Change note</div>
-        <div className="hunk-explainer-body">
-          {isExpanded
-            ? group.rationale
-            : `${group.rationale.slice(0, 120)}${group.rationale.length > 120 ? "..." : ""}`}
-        </div>
-        <button className="ghost small" onClick={() => toggleHunk(hunkId, setExpandedHunks)}>
-          {isExpanded ? "Less" : "More"}
-        </button>
-      </div>
-    );
-  }
-  return widgets;
-}
-
-function toggleHunk(
-  hunkId: string,
-  setExpandedHunks: React.Dispatch<React.SetStateAction<Set<string>>>
-) {
-  setExpandedHunks((current) => {
-    const next = new Set(current);
-    if (next.has(hunkId)) {
-      next.delete(hunkId);
-    } else {
-      next.add(hunkId);
-    }
-    return next;
-  });
 }
 
 function computeGroupMetrics(

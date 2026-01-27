@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings", "contextNotes"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "confidence", "title", "detailMarkdown", "evidence", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["bug", "flag"] },
+          "severity": { "type": "string", "enum": ["severe", "normal"] },
+          "flagClass": { "type": "string", "enum": ["investigate", "informational"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "title": { "type": "string" },
+          "detailMarkdown": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["filePath"],
+              "properties": {
+                "filePath": { "type": "string" },
+                "side": { "type": "string", "enum": ["old", "new"] },
+                "lineRange": {
+                  "type": "array",
+                  "items": { "type": "number" },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "hunkId": { "type": "string" },
+                "excerpt": { "type": "string" }
+              }
+            }
+          },
+          "status": { "type": "string", "enum": ["open", "resolved", "dismissed"] }
+        }
+      }
+    },
+    "contextNotes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "bodyMarkdown", "confidence", "groupId", "hunkIds"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "bodyMarkdown": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "groupId": { "type": "string" },
+          "hunkIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

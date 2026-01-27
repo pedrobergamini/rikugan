@@ -20,6 +20,22 @@ function deriveTags(filePath: string): string[] {
     tags.add("tests");
   }
 
+  if (
+    /\.(tsx|jsx|css|scss|sass)$/.test(lower) ||
+    lower.includes("/ui/") ||
+    lower.includes("/frontend/")
+  ) {
+    tags.add("ui");
+  }
+
+  if (lower.includes("/api/") || lower.includes("/routes/") || lower.includes("controller")) {
+    tags.add("api");
+  }
+
+  if (lower.includes("/db/") || lower.includes("/data/") || lower.includes("migration")) {
+    tags.add("data");
+  }
+
   if (lower.endsWith(".md") || lower.startsWith("docs/") || lower.includes("/docs/")) {
     tags.add("docs");
   }

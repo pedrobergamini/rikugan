@@ -9,6 +9,17 @@ export interface CodexOptions {
   profile?: string;
   oss?: boolean;
   cd?: string;
+  reasoningEffort?: string;
+}
+
+export const DEFAULT_CODEX_MODEL = "gpt-5.2-codex";
+export const DEFAULT_REASONING_EFFORT = "xhigh";
+
+export function resolveCodexConfig(options: CodexOptions) {
+  return {
+    model: options.model ?? DEFAULT_CODEX_MODEL,
+    reasoningEffort: options.reasoningEffort ?? DEFAULT_REASONING_EFFORT
+  };
 }
 
 export async function isCodexAvailable() {
@@ -41,6 +52,7 @@ export async function runCodexTask<T>(
   await fs.copyFile(args.schemaPath, schemaCopyPath);
 
   const runOnce = async (prompt: string) => {
+    const resolved = resolveCodexConfig(options);
     await execa(
       "codex",
       [
@@ -51,7 +63,10 @@ export async function runCodexTask<T>(
         args.schemaPath,
         "--output-last-message",
         args.outputPath,
-        ...(options.model ? ["--model", options.model] : []),
+        ...(resolved.model ? ["--model", resolved.model] : []),
+        ...(resolved.reasoningEffort
+          ? ["--config", `model_reasoning_effort=${resolved.reasoningEffort}`]
+          : []),
         ...(options.profile ? ["--profile", options.profile] : []),
         ...(options.oss ? ["--oss"] : []),
         ...(options.cd ? ["--cd", options.cd] : []),

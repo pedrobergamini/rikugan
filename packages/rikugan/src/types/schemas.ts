@@ -4,6 +4,7 @@ export const groupSchema = z.object({
   id: z.string(),
   title: z.string(),
   rationale: z.string(),
+  reviewFocus: z.array(z.string()).optional(),
   risk: z.enum(["low", "medium", "high"]),
   hunkIds: z.array(z.string()),
   suggestedTests: z.array(z.string()).optional()
@@ -62,4 +63,18 @@ export const findingSchema = z.object({
 
 export const findingsSchema = z.object({
   findings: z.array(findingSchema)
+});
+
+export const contextNoteSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  bodyMarkdown: z.string(),
+  confidence: z.number().min(0).max(1),
+  groupId: z.string(),
+  hunkIds: z.array(z.string())
+});
+
+export const reviewSchema = z.object({
+  findings: z.array(findingSchema),
+  contextNotes: z.array(contextNoteSchema)
 });
