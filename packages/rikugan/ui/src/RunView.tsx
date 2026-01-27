@@ -659,9 +659,9 @@ function handleFindingClick(
   if (!evidence) return;
   const target = {
     filePath: evidence.filePath,
-    side: evidence.side,
-    lineRange: evidence.lineRange,
-    hunkId: evidence.hunkId
+    side: evidence.side ?? undefined,
+    lineRange: evidence.lineRange ?? undefined,
+    hunkId: evidence.hunkId ?? undefined
   };
   setSelectedEvidence(target);
   setFlashToken(Date.now());

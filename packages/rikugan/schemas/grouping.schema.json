@@ -9,15 +9,23 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "title", "rationale", "risk", "hunkIds"],
+        "required": [
+          "id",
+          "title",
+          "rationale",
+          "reviewFocus",
+          "risk",
+          "hunkIds",
+          "suggestedTests"
+        ],
         "properties": {
           "id": { "type": "string" },
           "title": { "type": "string" },
           "rationale": { "type": "string" },
-          "reviewFocus": { "type": "array", "items": { "type": "string" } },
+          "reviewFocus": { "type": ["array", "null"], "items": { "type": "string" } },
           "risk": { "type": "string", "enum": ["low", "medium", "high"] },
           "hunkIds": { "type": "array", "items": { "type": "string" } },
-          "suggestedTests": { "type": "array", "items": { "type": "string" } }
+          "suggestedTests": { "type": ["array", "null"], "items": { "type": "string" } }
         }
       }
     }

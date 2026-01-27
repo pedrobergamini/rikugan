@@ -82,10 +82,10 @@ export interface ReviewGroup {
   id: string;
   title: string;
   rationale: string;
-  reviewFocus?: string[];
+  reviewFocus?: string[] | null;
   risk: RiskLevel;
   hunkIds: string[];
-  suggestedTests?: string[];
+  suggestedTests?: string[] | null;
 }
 
 export interface ContextNote {
@@ -107,29 +107,29 @@ export interface Annotation {
     filePath: string;
     side: "old" | "new";
     line: number;
-    hunkId?: string;
+    hunkId?: string | null;
   };
   actions?: Array<{
     label: string;
     action: "openChat";
     scope: "group" | "file" | "repo";
-  }>;
+  }> | null;
 }
 
 export interface Finding {
   id: string;
   kind: "bug" | "flag";
-  severity?: "severe" | "normal";
-  flagClass?: "investigate" | "informational";
+  severity?: "severe" | "normal" | null;
+  flagClass?: "investigate" | "informational" | null;
   confidence: number;
   title: string;
   detailMarkdown: string;
   evidence: Array<{
     filePath: string;
-    side?: "old" | "new";
-    lineRange?: [number, number];
-    hunkId?: string;
-    excerpt?: string;
+    side?: "old" | "new" | null;
+    lineRange?: [number, number] | null;
+    hunkId?: string | null;
+    excerpt?: string | null;
   }>;
   status: "open" | "resolved" | "dismissed";
 }

@@ -9,12 +9,25 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "kind", "confidence", "title", "detailMarkdown", "evidence", "status"],
+        "required": [
+          "id",
+          "kind",
+          "severity",
+          "flagClass",
+          "confidence",
+          "title",
+          "detailMarkdown",
+          "evidence",
+          "status"
+        ],
         "properties": {
           "id": { "type": "string" },
           "kind": { "type": "string", "enum": ["bug", "flag"] },
-          "severity": { "type": "string", "enum": ["severe", "normal"] },
-          "flagClass": { "type": "string", "enum": ["investigate", "informational"] },
+          "severity": { "type": ["string", "null"], "enum": ["severe", "normal", null] },
+          "flagClass": {
+            "type": ["string", "null"],
+            "enum": ["investigate", "informational", null]
+          },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "title": { "type": "string" },
           "detailMarkdown": { "type": "string" },
@@ -23,18 +36,18 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["filePath"],
+              "required": ["filePath", "side", "lineRange", "hunkId", "excerpt"],
               "properties": {
                 "filePath": { "type": "string" },
-                "side": { "type": "string", "enum": ["old", "new"] },
+                "side": { "type": ["string", "null"], "enum": ["old", "new", null] },
                 "lineRange": {
-                  "type": "array",
+                  "type": ["array", "null"],
                   "items": { "type": "number" },
                   "minItems": 2,
                   "maxItems": 2
                 },
-                "hunkId": { "type": "string" },
-                "excerpt": { "type": "string" }
+                "hunkId": { "type": ["string", "null"] },
+                "excerpt": { "type": ["string", "null"] }
               }
             }
           },

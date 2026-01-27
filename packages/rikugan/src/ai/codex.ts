@@ -41,95 +41,90 @@ export async function runCodexTask<T>(
   },
   schema: z.ZodSchema<T>,
   options: CodexOptions
-): Promise<{ data: T; raw: string } | null> {
+): Promise<{ data: T; raw: string }> {
   await fs.mkdir(args.codexDir, { recursive: true });
 
   const promptPath = path.join(args.codexDir, `${args.taskName}.prompt.txt`);
   const schemaCopyPath = path.join(args.codexDir, `${args.taskName}.schema.json`);
   const outputCopyPath = path.join(args.codexDir, `${args.taskName}.output.json`);
+  const rawOutputPath = path.join(args.codexDir, `${args.taskName}.output.raw.txt`);
+  const repairOutputPath = path.join(args.codexDir, `${args.taskName}.output.repair.raw.txt`);
 
   await fs.writeFile(promptPath, args.prompt);
   await fs.copyFile(args.schemaPath, schemaCopyPath);
 
-  const runOnce = async (prompt: string) => {
+  const runOnce = async (prompt: string, phase: "exec" | "repair") => {
     const resolved = resolveCodexConfig(options);
-    await execa(
-      "codex",
-      [
-        "exec",
-        "--sandbox",
-        "read-only",
-        "--output-schema",
-        args.schemaPath,
-        "--output-last-message",
-        args.outputPath,
-        ...(resolved.model ? ["--model", resolved.model] : []),
-        ...(resolved.reasoningEffort
-          ? ["--config", `model_reasoning_effort=${resolved.reasoningEffort}`]
-          : []),
-        ...(options.profile ? ["--profile", options.profile] : []),
-        ...(options.oss ? ["--oss"] : []),
-        ...(options.cd ? ["--cd", options.cd] : []),
-        "-"
-      ],
-      { input: prompt }
-    );
+    const command = [
+      "exec",
+      "--sandbox",
+      "read-only",
+      "--output-schema",
+      args.schemaPath,
+      "--output-last-message",
+      args.outputPath,
+      ...(resolved.model ? ["--model", resolved.model] : []),
+      ...(resolved.reasoningEffort
+        ? ["--config", `model_reasoning_effort=${resolved.reasoningEffort}`]
+        : []),
+      ...(options.profile ? ["--profile", options.profile] : []),
+      ...(options.oss ? ["--oss"] : []),
+      ...(options.cd ? ["--cd", options.cd] : []),
+      "-"
+    ];
+
+    try {
+      await execa("codex", command, { input: prompt });
+    } catch (error) {
+      throw new Error(formatExecFailure(args.taskName, phase, error));
+    }
   };
 
-  try {
-    await runOnce(args.prompt);
-  } catch {
-    return null;
-  }
+  await runOnce(args.prompt, "exec");
 
-  let raw = "";
-  try {
-    raw = await fs.readFile(args.outputPath, "utf8");
-  } catch {
-    return null;
-  }
+  let raw = await readOutput(args.outputPath, args.taskName, "exec");
 
-  const parsed = safeParse(schema, raw);
-  if (parsed) {
-    await fs.writeFile(outputCopyPath, JSON.stringify(parsed, null, 2));
-    return { data: parsed, raw };
+  const parsed = parseRaw(schema, raw);
+  if (parsed.ok) {
+    await fs.writeFile(outputCopyPath, JSON.stringify(parsed.data, null, 2));
+    return { data: parsed.data, raw };
   }
 
   const repairPrompt = await buildRepairPrompt(raw, args.schemaPath);
   const repairPath = path.join(args.codexDir, `${args.taskName}.repair.prompt.txt`);
   await fs.writeFile(repairPath, repairPrompt);
+  await fs.writeFile(rawOutputPath, raw);
 
-  try {
-    await runOnce(repairPrompt);
-  } catch {
-    return null;
+  await runOnce(repairPrompt, "repair");
+
+  raw = await readOutput(args.outputPath, args.taskName, "repair");
+
+  const repaired = parseRaw(schema, raw);
+  if (!repaired.ok) {
+    await fs.writeFile(repairOutputPath, raw);
+    throw new Error(formatParseFailure(args.taskName, repaired, args.outputPath));
   }
 
-  try {
-    raw = await fs.readFile(args.outputPath, "utf8");
-  } catch {
-    return null;
-  }
-
-  const repaired = safeParse(schema, raw);
-  if (!repaired) {
-    return null;
-  }
-
-  await fs.writeFile(outputCopyPath, JSON.stringify(repaired, null, 2));
-  return { data: repaired, raw };
+  await fs.writeFile(outputCopyPath, JSON.stringify(repaired.data, null, 2));
+  return { data: repaired.data, raw };
 }
 
-function safeParse<T>(schema: z.ZodSchema<T>, raw: string): T | null {
+type ParseResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; kind: "json"; message: string }
+  | { ok: false; kind: "schema"; issues: string[] };
+
+function parseRaw<T>(schema: z.ZodSchema<T>, raw: string): ParseResult<T> {
   try {
     const json = JSON.parse(raw) as unknown;
     const parsed = schema.safeParse(json);
-    if (!parsed.success) {
-      return null;
+    if (parsed.success) {
+      return { ok: true, data: parsed.data };
     }
-    return parsed.data;
-  } catch {
-    return null;
+    return { ok: false, kind: "schema", issues: formatIssues(parsed.error.issues) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, kind: "json", message };
   }
 }
 
@@ -145,4 +140,78 @@ async function buildRepairPrompt(raw: string, schemaPath: string) {
     "Invalid JSON:",
     raw
   ].join("\n");
+}
+
+async function readOutput(pathname: string, taskName: string, phase: "exec" | "repair") {
+  try {
+    return await fs.readFile(pathname, "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      [
+        `Codex ${taskName} ${phase} produced no output at ${pathname}.`,
+        "Check that codex exec completed successfully.",
+        message
+      ].join("\n")
+    );
+  }
+}
+
+function formatIssues(issues: z.ZodIssue[]) {
+  const limit = 8;
+  return issues.slice(0, limit).map((issue) => {
+    const path = issue.path.length ? issue.path.join(".") : "<root>";
+    return `${path}: ${issue.message}`;
+  });
+}
+
+function formatParseFailure<T>(taskName: string, result: ParseResult<T>, outputPath: string) {
+  if (result.ok) {
+    return `Codex ${taskName} output parsed successfully.`;
+  }
+
+  if (result.kind === "json") {
+    return [
+      `Codex ${taskName} output was not valid JSON.`,
+      `JSON parse error: ${result.message}`,
+      `Raw output: ${outputPath}`
+    ].join("\n");
+  }
+
+  return [
+    `Codex ${taskName} output did not match schema.`,
+    "Schema issues:",
+    ...result.issues.map((issue: string) => `- ${issue}`),
+    `Raw output: ${outputPath}`
+  ].join("\n");
+}
+
+function formatExecFailure(taskName: string, phase: "exec" | "repair", error: unknown) {
+  if (error && typeof error === "object") {
+    const detail = error as {
+      shortMessage?: string;
+      stderr?: string;
+      stdout?: string;
+      exitCode?: number;
+      command?: string;
+    };
+    const lines = [
+      `Codex ${taskName} ${phase} failed.`,
+      detail.shortMessage,
+      detail.command ? `Command: ${detail.command}` : undefined,
+      detail.exitCode !== undefined ? `Exit code: ${detail.exitCode}` : undefined,
+      detail.stderr ? `Stderr: ${truncate(detail.stderr)}` : undefined,
+      detail.stdout ? `Stdout: ${truncate(detail.stdout)}` : undefined
+    ].filter(Boolean);
+    return lines.join("\n");
+  }
+
+  return `Codex ${taskName} ${phase} failed.`;
+}
+
+function truncate(value: string, limit = 2000) {
+  if (value.length <= limit) {
+    return value;
+  }
+  return `${value.slice(0, limit)}…`;
 }

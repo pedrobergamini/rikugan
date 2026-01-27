@@ -41,74 +41,77 @@ program
   .option("--oss", "Use Codex OSS provider")
   .option("--cd <path>", "Codex workspace root")
   .action(async (options) => {
-    const cwd = process.cwd();
-    const repoRoot = await getRepoRoot(cwd);
-    const [branch, headSha, dirty] = await Promise.all([
-      getBranchName(repoRoot),
-      getHeadSha(repoRoot),
-      isDirty(repoRoot)
-    ]);
+    try {
+      const cwd = process.cwd();
+      const repoRoot = await getRepoRoot(cwd);
+      const [branch, headSha, dirty] = await Promise.all([
+        getBranchName(repoRoot),
+        getHeadSha(repoRoot),
+        isDirty(repoRoot)
+      ]);
 
-    const diffResult = await getDiff({
-      cwd: repoRoot,
-      staged: options.staged,
-      uncommitted: options.uncommitted,
-      range: options.range,
-      commit: options.commit,
-      since: options.since,
-      diffFile: options.diffFile,
-      diffStdin: options.diffStdin,
-      paths: options.paths
-    });
+      const diffResult = await getDiff({
+        cwd: repoRoot,
+        staged: options.staged,
+        uncommitted: options.uncommitted,
+        range: options.range,
+        commit: options.commit,
+        since: options.since,
+        diffFile: options.diffFile,
+        diffStdin: options.diffStdin,
+        paths: options.paths
+      });
 
-    if (!diffResult.diffText.trim()) {
-      console.log(chalk.yellow("Diff is empty. Nothing to review."));
-    }
+      if (!diffResult.diffText.trim()) {
+        console.log(chalk.yellow("Diff is empty. Nothing to review."));
+      }
 
-    const parsed = parseUnifiedDiff(diffResult.diffText);
-    const stats = computeDiffStats(parsed);
-    const units = buildChangeUnits(parsed);
+      const parsed = parseUnifiedDiff(diffResult.diffText);
+      const stats = computeDiffStats(parsed);
+      const units = buildChangeUnits(parsed);
 
-    const { runId, paths } = await createRun(repoRoot);
+      const { runId, paths } = await createRun(repoRoot);
 
-    const createdAt = new Date().toISOString();
-    const baseReview: ReviewJson = {
-      version: "1.0",
-      runId,
-      createdAt,
-      repo: {
-        root: repoRoot,
-        headSha,
-        branch,
-        dirty
-      },
-      diffSource: diffResult.diffSource,
-      stats,
-      diff: parsed,
-      groups: [],
-      contextNotes: [],
-      annotations: [],
-      findings: []
-    };
+      const createdAt = new Date().toISOString();
+      const baseReview: ReviewJson = {
+        version: "1.0",
+        runId,
+        createdAt,
+        repo: {
+          root: repoRoot,
+          headSha,
+          branch,
+          dirty
+        },
+        diffSource: diffResult.diffSource,
+        stats,
+        diff: parsed,
+        groups: [],
+        contextNotes: [],
+        annotations: [],
+        findings: []
+      };
 
-    let groups = heuristicGroups(units);
-    let contextNotes: ReviewJson["contextNotes"] = [];
-    let annotations: ReviewJson["annotations"] = [];
-    let findings: ReviewJson["findings"] = [];
-    let fallbackReason: string | undefined;
+      let groups = heuristicGroups(units);
+      let contextNotes: ReviewJson["contextNotes"] = [];
+      let annotations: ReviewJson["annotations"] = [];
+      let findings: ReviewJson["findings"] = [];
 
-    const codexOptions: CodexOptions = {
-      model: options.model,
-      reasoningEffort: options.reasoningEffort,
-      profile: options.profile,
-      oss: options.oss,
-      cd: options.cd ?? repoRoot
-    };
-    const resolvedCodex = resolveCodexConfig(codexOptions);
-    const repoContext = await loadRepoContext(repoRoot, options.context);
+      const codexOptions: CodexOptions = {
+        model: options.model,
+        reasoningEffort: options.reasoningEffort,
+        profile: options.profile,
+        oss: options.oss,
+        cd: options.cd ?? repoRoot
+      };
+      const resolvedCodex = resolveCodexConfig(codexOptions);
+      const repoContext = await loadRepoContext(repoRoot, options.context);
 
-    const codexAvailable = await isCodexAvailable();
-    if (codexAvailable) {
+      const codexAvailable = await isCodexAvailable();
+      if (!codexAvailable) {
+        throw new Error("Codex is not available. Ensure `codex --version` works.");
+      }
+
       const groupingPrompt = buildGroupingPrompt(parsed, units, groups, repoContext);
       const groupingResult = await runCodexTask(
         {
@@ -122,11 +125,7 @@ program
         codexOptions
       );
 
-      if (groupingResult?.data) {
-        groups = groupingResult.data.groups;
-      } else {
-        fallbackReason = "Codex grouping failed schema validation.";
-      }
+      groups = groupingResult.data.groups;
 
       const reviewTargets = computeReviewTargets(stats, units, groups);
       const reviewPrompt = buildReviewPrompt(parsed, units, groups, reviewTargets, repoContext);
@@ -142,55 +141,47 @@ program
         codexOptions
       );
 
-      if (reviewResult?.data) {
-        const initialNotes = normalizeContextNotes(
-          reviewResult.data.contextNotes,
+      const initialNotes = normalizeContextNotes(
+        reviewResult.data.contextNotes,
+        groups,
+        reviewTargets.maxNotes
+      );
+      contextNotes = initialNotes;
+      findings = reviewResult.data.findings;
+
+      if (initialNotes.length < reviewTargets.minNotes) {
+        const refinePrompt = buildReviewPrompt(
+          parsed,
+          units,
+          groups,
+          {
+            ...reviewTargets,
+            minNotes: Math.min(reviewTargets.maxNotes, reviewTargets.minNotes + 2),
+            pass: 2
+          },
+          repoContext
+        );
+        const refineResult = await runCodexTask(
+          {
+            taskName: "review-refine",
+            prompt: refinePrompt,
+            schemaPath: schemaPath("review.schema.json"),
+            outputPath: path.join(paths.codexDir, "review-refine.result.json"),
+            codexDir: paths.codexDir
+          },
+          reviewSchema,
+          codexOptions
+        );
+
+        const refinedNotes = normalizeContextNotes(
+          refineResult.data.contextNotes,
           groups,
           reviewTargets.maxNotes
         );
-        contextNotes = initialNotes;
-        findings = reviewResult.data.findings;
-
-        if (initialNotes.length < reviewTargets.minNotes) {
-          const refinePrompt = buildReviewPrompt(
-            parsed,
-            units,
-            groups,
-            {
-              ...reviewTargets,
-              minNotes: Math.min(reviewTargets.maxNotes, reviewTargets.minNotes + 2),
-              pass: 2
-            },
-            repoContext
-          );
-          const refineResult = await runCodexTask(
-            {
-              taskName: "review-refine",
-              prompt: refinePrompt,
-              schemaPath: schemaPath("review.schema.json"),
-              outputPath: path.join(paths.codexDir, "review-refine.result.json"),
-              codexDir: paths.codexDir
-            },
-            reviewSchema,
-            codexOptions
-          );
-
-          if (refineResult?.data) {
-            const refinedNotes = normalizeContextNotes(
-              refineResult.data.contextNotes,
-              groups,
-              reviewTargets.maxNotes
-            );
-            if (refinedNotes.length >= contextNotes.length) {
-              contextNotes = refinedNotes;
-            }
-            findings = mergeFindings(findings, refineResult.data.findings);
-          }
+        if (refinedNotes.length >= contextNotes.length) {
+          contextNotes = refinedNotes;
         }
-      } else {
-        if (!fallbackReason) {
-          fallbackReason = "Codex review failed schema validation.";
-        }
+        findings = mergeFindings(findings, refineResult.data.findings);
       }
 
       const annotationsPrompt = buildAnnotationsPrompt(parsed, groups);
@@ -206,55 +197,52 @@ program
         codexOptions
       );
 
-      if (annotationsResult?.data) {
-        annotations = annotationsResult.data.annotations;
-      } else if (!fallbackReason) {
-        fallbackReason = "Codex annotations failed schema validation.";
+      annotations = annotationsResult.data.annotations;
+
+      const review: ReviewJson = {
+        ...baseReview,
+        ai: {
+          usedCodex: true,
+          model: resolvedCodex.model,
+          reasoningEffort: resolvedCodex.reasoningEffort
+        },
+        groups,
+        contextNotes,
+        annotations,
+        findings
+      };
+
+      const meta: ReviewRunMeta = {
+        runId,
+        createdAt,
+        repoRoot,
+        branch,
+        headSha,
+        dirty,
+        diffSource: diffResult.diffSource,
+        stats,
+        groupsCount: groups.length,
+        findingsCount: findings.filter((finding) => finding.kind === "bug").length,
+        flagsCount: findings.filter((finding) => finding.kind === "flag").length
+      };
+
+      await writeReview(paths, review, diffResult.diffText);
+      await writeMeta(paths, meta);
+
+      const server = await startServer({ repoRoot });
+      const url = `${server.url}/run/${runId}`;
+
+      console.log(chalk.green(`Rikugan run ${runId} ready.`));
+      console.log(chalk.gray(`Server running at ${server.url}`));
+      if (options.open !== false) {
+        await open(url);
+      } else {
+        console.log(url);
       }
-    } else {
-      fallbackReason = "Codex is not available; used heuristic grouping.";
-    }
-
-    const review: ReviewJson = {
-      ...baseReview,
-      ai: {
-        usedCodex: codexAvailable && !fallbackReason,
-        model: resolvedCodex.model,
-        reasoningEffort: resolvedCodex.reasoningEffort,
-        ...(fallbackReason ? { fallbackReason } : {})
-      },
-      groups,
-      contextNotes,
-      annotations,
-      findings
-    };
-
-    const meta: ReviewRunMeta = {
-      runId,
-      createdAt,
-      repoRoot,
-      branch,
-      headSha,
-      dirty,
-      diffSource: diffResult.diffSource,
-      stats,
-      groupsCount: groups.length,
-      findingsCount: findings.filter((finding) => finding.kind === "bug").length,
-      flagsCount: findings.filter((finding) => finding.kind === "flag").length
-    };
-
-    await writeReview(paths, review, diffResult.diffText);
-    await writeMeta(paths, meta);
-
-    const server = await startServer({ repoRoot });
-    const url = `${server.url}/run/${runId}`;
-
-    console.log(chalk.green(`Rikugan run ${runId} ready.`));
-    console.log(chalk.gray(`Server running at ${server.url}`));
-    if (options.open !== false) {
-      await open(url);
-    } else {
-      console.log(url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(message));
+      process.exitCode = 1;
     }
   });
 
@@ -432,6 +420,7 @@ function buildGroupingPrompt(
     "Rationale should explain intent and cross-file connections in 1-3 sentences.",
     "Review focus should be 1-3 short bullets of what to inspect closely.",
     "Provide group ids, titles, rationales, reviewFocus, risks, and ordered hunkIds.",
+    "If a field is not applicable, return null instead of omitting it.",
     "Return JSON matching this schema. No extra keys. No prose.",
     "---",
     JSON.stringify({ diff: parsed, changeUnits: units, fallbackGroups, repoContext }, null, 2)
@@ -446,10 +435,9 @@ function buildReviewPrompt(
   repoContext: string | null
 ) {
   return [
-    "/review",
     "You are a senior reviewer performing a deep code review.",
     "Take extra time to reason about intent, impact, and hidden risks.",
-    "Run /review on the diff and grouping context below.",
+    "Review the diff and grouping context below.",
     "Return findings (bugs/flags) and contextNotes.",
     "Findings must include concrete evidence (filePath + lineRange or hunkId).",
     "Context notes must be non-obvious and high-signal; skip trivial changes.",
@@ -457,6 +445,7 @@ function buildReviewPrompt(
     "Explain intent, impact, and cross-file relationships when relevant.",
     "Do not restate line edits or say 'added X at line Y'.",
     "Each context note must include at least one concrete identifier wrapped in backticks.",
+    "If a field is not applicable, return null instead of omitting it.",
     `Provide ${targets.minNotes}-${targets.maxNotes} notes for non-trivial diffs; fewer if low-signal; max ${targets.maxNotes}.`,
     targets.pass === 2
       ? "This is a second pass; push for deeper, more contextual notes."
@@ -478,6 +467,7 @@ function buildAnnotationsPrompt(parsed: ReviewJson["diff"], groups: ReviewJson["
     "Produce line anchors that allow hover tooltips.",
     "Prioritize non-obvious behavior, risks, and cross-file connections.",
     "Keep it sparse: max 60 annotations.",
+    "If a field is not applicable, return null instead of omitting it.",
     "Return JSON matching this schema. No extra keys. No prose.",
     "---",
     JSON.stringify({ diff: parsed, groups }, null, 2)

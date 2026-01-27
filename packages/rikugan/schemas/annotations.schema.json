@@ -9,7 +9,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "kind", "confidence", "title", "bodyMarkdown", "anchor"],
+        "required": ["id", "kind", "confidence", "title", "bodyMarkdown", "anchor", "actions"],
         "properties": {
           "id": { "type": "string" },
           "kind": {
@@ -22,16 +22,16 @@
           "anchor": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["filePath", "side", "line"],
+            "required": ["filePath", "side", "line", "hunkId"],
             "properties": {
               "filePath": { "type": "string" },
               "side": { "type": "string", "enum": ["old", "new"] },
               "line": { "type": "number" },
-              "hunkId": { "type": "string" }
+              "hunkId": { "type": ["string", "null"] }
             }
           },
           "actions": {
-            "type": "array",
+            "type": ["array", "null"],
             "items": {
               "type": "object",
               "additionalProperties": false,

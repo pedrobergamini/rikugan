@@ -1,13 +1,20 @@
 import { z } from "zod";
 
+const nullableOptional = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === null ? undefined : value), schema.optional()) as z.ZodType<
+    z.output<T> | undefined,
+    z.ZodTypeDef,
+    z.input<T> | null | undefined
+  >;
+
 export const groupSchema = z.object({
   id: z.string(),
   title: z.string(),
   rationale: z.string(),
-  reviewFocus: z.array(z.string()).optional(),
+  reviewFocus: nullableOptional(z.array(z.string())),
   risk: z.enum(["low", "medium", "high"]),
   hunkIds: z.array(z.string()),
-  suggestedTests: z.array(z.string()).optional()
+  suggestedTests: nullableOptional(z.array(z.string()))
 });
 
 export const groupsSchema = z.object({
@@ -24,17 +31,17 @@ export const annotationSchema = z.object({
     filePath: z.string(),
     side: z.enum(["old", "new"]),
     line: z.number().int().positive(),
-    hunkId: z.string().optional()
+    hunkId: nullableOptional(z.string())
   }),
-  actions: z
-    .array(
+  actions: nullableOptional(
+    z.array(
       z.object({
         label: z.string(),
         action: z.literal("openChat"),
         scope: z.enum(["group", "file", "repo"])
       })
     )
-    .optional()
+  )
 });
 
 export const annotationsSchema = z.object({
@@ -44,18 +51,20 @@ export const annotationsSchema = z.object({
 export const findingSchema = z.object({
   id: z.string(),
   kind: z.enum(["bug", "flag"]),
-  severity: z.enum(["severe", "normal"]).optional(),
-  flagClass: z.enum(["investigate", "informational"]).optional(),
+  severity: nullableOptional(z.enum(["severe", "normal"])),
+  flagClass: nullableOptional(z.enum(["investigate", "informational"])),
   confidence: z.number().min(0).max(1),
   title: z.string(),
   detailMarkdown: z.string(),
   evidence: z.array(
     z.object({
       filePath: z.string(),
-      side: z.enum(["old", "new"]).optional(),
-      lineRange: z.tuple([z.number().int().positive(), z.number().int().positive()]).optional(),
-      hunkId: z.string().optional(),
-      excerpt: z.string().optional()
+      side: nullableOptional(z.enum(["old", "new"])),
+      lineRange: nullableOptional(
+        z.tuple([z.number().int().positive(), z.number().int().positive()])
+      ),
+      hunkId: nullableOptional(z.string()),
+      excerpt: nullableOptional(z.string())
     })
   ),
   status: z.enum(["open", "resolved", "dismissed"])
