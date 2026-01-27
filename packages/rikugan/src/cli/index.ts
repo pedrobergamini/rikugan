@@ -584,7 +584,16 @@ function mergeFindings(
   const merged = new Map<string, ReviewJson["findings"][number]>();
   const keyFor = (finding: ReviewJson["findings"][number]) => {
     const file = finding.evidence[0]?.filePath ?? "unknown";
-    return `${finding.kind}:${finding.title}:${file}`;
+    const evidenceSig = finding.evidence
+      .map((evidence) => {
+        const range = evidence.lineRange ? evidence.lineRange.join("-") : "";
+        return [evidence.filePath, evidence.side ?? "", evidence.hunkId ?? "", range]
+          .filter(Boolean)
+          .join(":");
+      })
+      .sort()
+      .join("|");
+    return `${finding.kind}:${finding.title}:${file}:${evidenceSig}`;
   };
 
   for (const finding of primary) {
