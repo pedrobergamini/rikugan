@@ -6,7 +6,9 @@
 - `packages/rikugan/tests/`: Vitest tests (`**/*.test.ts`) and shared fixtures; UI tests live in `tests/ui/`.
 - `packages/rikugan/schemas/`: JSON schemas used to validate Codex outputs.
 - `packages/rikugan/fixtures/`: Sample diffs and test data.
+- `packages/rikugan/artifacts/`: UI screenshots and export artifacts used in docs/README.
 - `docs/`: Specs and design notes.
+- `skills/`: Codex skill bundles for Rikugan.
 
 ## Build, Test, and Development Commands
 - `pnpm install`: Install workspace dependencies.
@@ -16,6 +18,11 @@
 - `pnpm typecheck`: TypeScript `tsc --noEmit`.
 - `pnpm test`: Build, then run Vitest + Playwright.
 - `pnpm -C packages/rikugan dev:ui`: Run the UI dev server.
+
+## Publishing (npm)
+1. Bump version in `packages/rikugan/package.json` (SemVer).
+2. `pnpm -C packages/rikugan build`
+3. Run `npm publish` from `packages/rikugan` (not the workspace root).
 
 ## Coding Style & Naming Conventions
 - TypeScript + ESM; React for UI.
