@@ -35,6 +35,7 @@ program
   .option("--diff-stdin", "Read diff from stdin")
   .option("--no-open", "Do not open browser")
   .option("--context <path>", "Additional repo context for Codex")
+  .option("--context-max-chars <n>", "Max repo context chars (0 = unlimited)", "4000")
   .option("--model <model>", "Codex model")
   .option("--reasoning-effort <level>", "Codex reasoning effort")
   .option("--profile <profile>", "Codex profile")
@@ -105,7 +106,8 @@ program
         cd: options.cd ?? repoRoot
       };
       const resolvedCodex = resolveCodexConfig(codexOptions);
-      const repoContext = await loadRepoContext(repoRoot, options.context);
+      const contextMaxChars = resolveContextMaxChars(options.contextMaxChars);
+      const repoContext = await loadRepoContext(repoRoot, options.context, contextMaxChars);
 
       const codexAvailable = await isCodexAvailable();
       if (!codexAvailable) {
@@ -608,7 +610,7 @@ async function binaryOk(cmd: string, args: string[]) {
   }
 }
 
-async function loadRepoContext(repoRoot: string, explicitPath?: string) {
+async function loadRepoContext(repoRoot: string, explicitPath?: string, maxChars = 4000) {
   const candidates = [
     explicitPath ? path.resolve(explicitPath) : null,
     path.join(repoRoot, ".rikugan", "context.md"),
@@ -621,7 +623,7 @@ async function loadRepoContext(repoRoot: string, explicitPath?: string) {
       if (!raw.trim()) {
         continue;
       }
-      return truncateContext(raw);
+      return truncateContext(raw, maxChars);
     } catch {
       continue;
     }
@@ -632,7 +634,8 @@ async function loadRepoContext(repoRoot: string, explicitPath?: string) {
     const pkg = JSON.parse(pkgRaw) as { name?: string; description?: string };
     if (pkg.name || pkg.description) {
       return truncateContext(
-        [pkg.name ? `Project: ${pkg.name}` : null, pkg.description].filter(Boolean).join("\n")
+        [pkg.name ? `Project: ${pkg.name}` : null, pkg.description].filter(Boolean).join("\n"),
+        maxChars
       );
     }
   } catch {
@@ -642,11 +645,24 @@ async function loadRepoContext(repoRoot: string, explicitPath?: string) {
   return null;
 }
 
-function truncateContext(input: string) {
+function truncateContext(input: string, maxChars: number) {
   const trimmed = input.trim();
-  const maxChars = 4000;
-  if (trimmed.length <= maxChars) return trimmed;
+  if (maxChars <= 0 || trimmed.length <= maxChars) {
+    return trimmed;
+  }
   return `${trimmed.slice(0, maxChars)}\n\n[Truncated repo context]`;
+}
+
+function resolveContextMaxChars(value?: string) {
+  if (value === undefined) {
+    return 4000;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid --context-max-chars value: ${value}`);
+  }
+  // `0` disables truncation.
+  return Math.max(0, Math.floor(parsed));
 }
 
 function exportMarkdown(review: ReviewJson) {
