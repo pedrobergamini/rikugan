@@ -18,6 +18,8 @@ import type { ReviewJson, ReviewRunMeta } from "../types/review";
 import { annotationsSchema, groupsSchema, reviewSchema } from "../types/schemas";
 import { getBranchName, getHeadSha, getRepoRoot, isDirty } from "../utils/git";
 
+import { loadRepoContext } from "./context";
+
 const program = new Command();
 
 program.name("rikugan").description("Local-first browser code review powered by codex exec.");
@@ -35,7 +37,6 @@ program
   .option("--diff-stdin", "Read diff from stdin")
   .option("--no-open", "Do not open browser")
   .option("--context <path>", "Additional repo context for Codex")
-  .option("--context-max-chars <n>", "Max repo context chars (0 = unlimited)", "4000")
   .option("--model <model>", "Codex model")
   .option("--reasoning-effort <level>", "Codex reasoning effort")
   .option("--profile <profile>", "Codex profile")
@@ -106,8 +107,7 @@ program
         cd: options.cd ?? repoRoot
       };
       const resolvedCodex = resolveCodexConfig(codexOptions);
-      const contextMaxChars = resolveContextMaxChars(options.contextMaxChars);
-      const repoContext = await loadRepoContext(repoRoot, options.context, contextMaxChars);
+      const repoContext = await loadRepoContext(repoRoot, options.context);
 
       const codexAvailable = await isCodexAvailable();
       if (!codexAvailable) {
@@ -608,61 +608,6 @@ async function binaryOk(cmd: string, args: string[]) {
   } catch {
     return false;
   }
-}
-
-async function loadRepoContext(repoRoot: string, explicitPath?: string, maxChars = 4000) {
-  const candidates = [
-    explicitPath ? path.resolve(explicitPath) : null,
-    path.join(repoRoot, ".rikugan", "context.md"),
-    path.join(repoRoot, ".rikugan", "context.txt")
-  ].filter(Boolean) as string[];
-
-  for (const candidate of candidates) {
-    try {
-      const raw = await fs.readFile(candidate, "utf8");
-      if (!raw.trim()) {
-        continue;
-      }
-      return truncateContext(raw, maxChars);
-    } catch {
-      continue;
-    }
-  }
-
-  try {
-    const pkgRaw = await fs.readFile(path.join(repoRoot, "package.json"), "utf8");
-    const pkg = JSON.parse(pkgRaw) as { name?: string; description?: string };
-    if (pkg.name || pkg.description) {
-      return truncateContext(
-        [pkg.name ? `Project: ${pkg.name}` : null, pkg.description].filter(Boolean).join("\n"),
-        maxChars
-      );
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
-}
-
-function truncateContext(input: string, maxChars: number) {
-  const trimmed = input.trim();
-  if (maxChars <= 0 || trimmed.length <= maxChars) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, maxChars)}\n\n[Truncated repo context]`;
-}
-
-function resolveContextMaxChars(value?: string) {
-  if (value === undefined) {
-    return 4000;
-  }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    throw new Error(`Invalid --context-max-chars value: ${value}`);
-  }
-  // `0` disables truncation.
-  return Math.max(0, Math.floor(parsed));
 }
 
 function exportMarkdown(review: ReviewJson) {
