@@ -26,7 +26,7 @@ async function createTempRepo() {
 async function setupMockCodex(tmpDir: string) {
   const scriptPath = path.join(tmpDir, "codex");
   const script = `#!/usr/bin/env node
-import fs from "node:fs";
+const fs = require("node:fs");
 
 const args = process.argv.slice(2);
 if (args[0] === "--version") {
