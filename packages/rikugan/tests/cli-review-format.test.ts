@@ -27,6 +27,7 @@ async function setupMockCodex(tmpDir: string) {
   const scriptPath = path.join(tmpDir, "codex");
   const script = `#!/usr/bin/env node
 const fs = require("node:fs");
+const path = require("node:path");
 
 const args = process.argv.slice(2);
 if (args[0] === "--version") {
@@ -42,7 +43,7 @@ if (!outPath || !schemaPath) {
   process.exit(1);
 }
 
-const schemaName = schemaPath.split("/").pop();
+const schemaName = path.basename(schemaPath);
 
 let payload;
 if (schemaName === "grouping.schema.json") {
@@ -129,7 +130,7 @@ describe("rikugan review --format", () => {
           cwd: repoRoot,
           env: {
             ...process.env,
-            PATH: `${tmpDir}:${process.env.PATH ?? ""}`
+            PATH: `${tmpDir}${path.delimiter}${process.env.PATH ?? ""}`
           }
         }
       );
@@ -183,7 +184,7 @@ describe("rikugan review --format", () => {
     try {
       const markerPath = path.join(tmpDir, "codex.invoked");
       const script = `#!/usr/bin/env node
-import fs from "node:fs";
+const fs = require("node:fs");
 fs.writeFileSync(${JSON.stringify(markerPath)}, "invoked");
 process.exit(1);
 `;
@@ -195,7 +196,7 @@ process.exit(1);
           cwd: tmpDir,
           env: {
             ...process.env,
-            PATH: `${tmpDir}:${process.env.PATH ?? ""}`
+            PATH: `${tmpDir}${path.delimiter}${process.env.PATH ?? ""}`
           }
         });
       } catch (caught) {
