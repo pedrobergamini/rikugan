@@ -54,9 +54,10 @@ rikugan review [diff-source] [options]
 Behavior:
 1. Capture diff from the local repo (or diff file/stdin).
 2. Create a new `runId` and persist the run bundle to disk.
-3. Start a local web server.
-4. Open the browser to `http://127.0.0.1:<port>/run/<runId>` (unless `--no-open`).
-5. Stream progress in the UI while Codex runs (nice-to-have, but spec’d).
+3. If `--format ui` (default): start a local web server.
+4. If `--format ui`: open the browser to `http://127.0.0.1:<port>/run/<runId>` (unless `--no-open`).
+5. If `--format json|md|html`: do not start the server; print the formatted review to stdout.
+6. Stream progress in the UI while Codex runs (nice-to-have, but spec’d).
 
 #### `rikugan list`
 Lists previous runs for the current repo (newest first).
@@ -455,4 +456,3 @@ Store under `./artifacts/screenshots/`:
 - [ ] `rikugan list` shows runs and `rikugan open --latest` works
 - [ ] Findings categorized into Bugs/Flags with severity/confidence and jump-to-evidence
 - [ ] Rikugan never calls an AI API directly; only shells out to `codex exec`
-

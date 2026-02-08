@@ -36,6 +36,7 @@ program
   .option("--diff-file <path>", "Use diff from file")
   .option("--diff-stdin", "Read diff from stdin")
   .option("--no-open", "Do not open browser")
+  .option("--format <format>", "ui|json|md|html", "ui")
   .option("--context <path>", "Additional repo context for Codex")
   .option("--model <model>", "Codex model")
   .option("--reasoning-effort <level>", "Codex reasoning effort")
@@ -44,6 +45,11 @@ program
   .option("--cd <path>", "Codex workspace root")
   .action(async (options) => {
     try {
+      const format = String(options.format ?? "ui");
+      if (!["ui", "json", "md", "html"].includes(format)) {
+        throw new Error("Unknown format. Use ui|json|md|html.");
+      }
+
       const cwd = process.cwd();
       const repoRoot = await getRepoRoot(cwd);
       const [branch, headSha, dirty] = await Promise.all([
@@ -65,7 +71,65 @@ program
       });
 
       if (!diffResult.diffText.trim()) {
-        console.log(chalk.yellow("Diff is empty. Nothing to review."));
+        const createdAt = new Date().toISOString();
+        const parsed = parseUnifiedDiff(diffResult.diffText);
+        const stats = computeDiffStats(parsed);
+
+        if (format === "ui") {
+          console.log(chalk.yellow("Diff is empty. Nothing to review."));
+          return;
+        }
+
+        const { runId, paths } = await createRun(repoRoot);
+        const review: ReviewJson = {
+          version: "1.0",
+          runId,
+          createdAt,
+          ai: { usedCodex: false, fallbackReason: "empty_diff" },
+          repo: {
+            root: repoRoot,
+            headSha,
+            branch,
+            dirty
+          },
+          diffSource: diffResult.diffSource,
+          stats,
+          diff: parsed,
+          groups: [],
+          contextNotes: [],
+          annotations: [],
+          findings: []
+        };
+
+        const meta: ReviewRunMeta = {
+          runId,
+          createdAt,
+          repoRoot,
+          branch,
+          headSha,
+          dirty,
+          diffSource: diffResult.diffSource,
+          stats,
+          groupsCount: 0,
+          findingsCount: 0,
+          flagsCount: 0
+        };
+
+        await writeReview(paths, review, diffResult.diffText);
+        await writeMeta(paths, meta);
+
+        if (format === "json") {
+          process.stdout.write(`${JSON.stringify(review, null, 2)}\n`);
+          return;
+        }
+
+        if (format === "md") {
+          process.stdout.write(`${exportMarkdown(review)}\n`);
+          return;
+        }
+
+        process.stdout.write(`${exportHtml(review)}\n`);
+        return;
       }
 
       const parsed = parseUnifiedDiff(diffResult.diffText);
@@ -230,6 +294,21 @@ program
 
       await writeReview(paths, review, diffResult.diffText);
       await writeMeta(paths, meta);
+
+      if (format === "json") {
+        process.stdout.write(`${JSON.stringify(review, null, 2)}\n`);
+        return;
+      }
+
+      if (format === "md") {
+        process.stdout.write(`${exportMarkdown(review)}\n`);
+        return;
+      }
+
+      if (format === "html") {
+        process.stdout.write(`${exportHtml(review)}\n`);
+        return;
+      }
 
       const server = await startServer({ repoRoot });
       const url = `${server.url}/run/${runId}`;

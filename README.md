@@ -53,6 +53,7 @@ For non-git diffs, use `--diff-file` or `--diff-stdin`.
 | Review working tree changes | `rikugan review --uncommitted` |
 | Review a commit or range | `rikugan review --commit <sha>` or `rikugan review --range A..B` |
 | Review a diff file / stdin | `rikugan review --diff-file path/to.diff` or `rikugan review --diff-stdin` |
+| Headless review output (stdout) | `rikugan review --staged --format json` |
 | Open latest run | `rikugan open --latest` |
 | Export a run | `rikugan export <runId> --format html|md|json --out <dir>` |
 
@@ -62,6 +63,7 @@ For non-git diffs, use `--diff-file` or `--diff-stdin`.
 - `--range A..B`, `--commit <sha>`, `--since <ref>`
 - `--diff-file <path>`, `--diff-stdin`
 - `--paths <glob...>`
+- `--format ui|json|md|html`
 
 ## Features
 
